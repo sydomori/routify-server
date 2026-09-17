@@ -99,7 +99,7 @@ def report_issue(
         type=type,
         description=description,
         status="open",
-        reported_at=datetime.utcnow(),
+        reported_at=utcnow(),
     )
     db.session.add(issue)
     db.session.commit()
@@ -112,4 +112,11 @@ def report_issue(
     except Exception:
         _log_notification(manager_phone, "sms", message, "failed")
 
+    return issue
+
+def resolve_issue(issue_id:int) -> TruckIssue:
+    issue = TruckIssue.query.get_or_404(issue_id)
+    issue.status = "resolved"
+    issue.resolved_at = utcnow()
+    db.session.commit()
     return issue
