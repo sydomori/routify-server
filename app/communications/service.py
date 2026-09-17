@@ -45,7 +45,17 @@ def send_manager_invite_email(
         _log_notification(user.email,"email", body, "failed")
 
 
-def get_manager_phone_placeholder() -> str:
+def _get_manager_phone_placeholder() -> str:
     raise NotImplementedError(
         """resolve manager phone number"""
     )
+
+def notify_trip_started(trip) -> None:
+    """called by trips.service.start_trip()"""
+    manager_phone = _get_manager_phone_placeholder()
+    message = f"Trip #{trip.id} started (truck #{trip.truck.id})."
+    try:
+        send_sms(manager_phone, message)
+        _log_notification(manager_phone, "sms", message, "sent", trip.id)
+    except Exception:
+        _log_notification(manager_phone, "sms", message, "failed", trip.id)
