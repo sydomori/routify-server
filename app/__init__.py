@@ -50,4 +50,6 @@ def _register_blueprints(app):
     """
     from app.auth.routes import auth_bp
     app.register_blueprint(auth_bp,url_prefix="/api/auth")
-    
+
+    from app.communications.routes import communications_bp
+    app.register_blueprint(communications_bp,url_prefix="/api/communications")
