@@ -50,7 +50,7 @@ def _get_manager_phone_placeholder() -> str:
         """resolve manager phone number"""
     )
 
-def notify_trip_started(trip) -> None:
+def notify_trip_started(trip, manager_phone:str) -> None:
     """called by trips.service.start_trip()"""
     manager_phone = _get_manager_phone_placeholder()
     message = f"Trip #{trip.id} started (truck #{trip.truck.id}, driver #{trip.driver.id})."
@@ -61,7 +61,7 @@ def notify_trip_started(trip) -> None:
         _log_notification(manager_phone, "sms", message, "failed", trip.id)
 
 
-def notify_trip_ended(trip):
+def notify_trip_ended(trip, manager_phone:str) -> None:
     """called by trips.service.end_trip"""
     manager_phone = _get_manager_phone_placeholder()
     message = f"Trip #{trip.id} ended (truck #{trip.truck.id}, driver #{trip.driver.id})."
@@ -74,7 +74,8 @@ def notify_trip_ended(trip):
 
 
 def notify_manager_documents_pending(
-    driver_id:int
+    driver_id:int,
+    manager_phone:str
 ) -> None:
     """Called by documents.service.upload_document()"""
     manager_phone  = _get_manager_phone_placeholder()
@@ -90,7 +91,8 @@ def report_issue(
     truck_id:int,
     driver_id:int,
     type: str,
-    description:str
+    description:str,
+    manager_phone:str
 ) -> TruckIssue:
     """Creates the TruckIssue first — the record persists even if the SMS fails."""
     issue = TruckIssue(
