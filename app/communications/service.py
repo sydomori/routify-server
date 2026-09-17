@@ -43,3 +43,9 @@ def send_manager_invite_email(
         _log_notification(user.email, "email", body, "sent")
     except Exception:
         _log_notification(user.email,"email", body, "failed")
+
+
+def get_manager_phone_placeholder() -> str:
+    raise NotImplementedError(
+        """resolve manager phone number"""
+    )
