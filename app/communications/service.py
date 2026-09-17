@@ -120,3 +120,17 @@ def resolve_issue(issue_id:int) -> TruckIssue:
     issue.resolved_at = utcnow()
     db.session.commit()
     return issue
+
+def list_issues(
+    status: str=None,
+    truck_id:int=None
+):
+    query = TruckIssue.query
+
+    if status is not None:
+        query = query.filter_by(status=status)
+
+    if truck_id is not None:
+        query = query.filter_by(truck_id=truck_id)
+
+    return query.order_by(TruckIssue.reported_at.desc()).all()
