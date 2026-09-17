@@ -44,3 +44,11 @@ def get_issues():
     truck_id = request.args.get("truck_id", type=int)
     issues = service.list_issues(status=status, truck_id=truck_id)
     return jsonify(issues_schema.dump(issues)), 200
+
+
+communications_bp.patch("/issues/<int:issue_id>/resolve")
+@jwt_required()
+@role_required("manager")
+def resolve_issue(issue_id):
+    issue = service.resolve_issue(issue_id)
+    return jsonify(issue_schema.dump(issue)), 200
