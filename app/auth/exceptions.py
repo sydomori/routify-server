@@ -14,3 +14,6 @@ class InvalidDriverStatusError(AuthError):
 
 class NotADriverError(AuthError):
     """raised when a user is not a driver but attempts to perform driver-specific actions"""
+
+class NoManagerFoundError(AuthError):
+    """Raised by get_manager_phone() when zero managers exist to notify."""
