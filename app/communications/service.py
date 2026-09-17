@@ -134,3 +134,6 @@ def list_issues(
         query = query.filter_by(truck_id=truck_id)
 
     return query.order_by(TruckIssue.reported_at.desc()).all()
+
+def list_notification_logs():
+    return NotificationLog.query.order_by(NotificationLog.sent_at.desc()).all()
