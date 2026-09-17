@@ -29,3 +29,17 @@ def send_onboarding_sms(
         _log_notification(phone, "sms", message, "sent")
     except Exception:
         _log_notification(phone, "sms", message, "failed")
+
+def send_manager_invite_email(
+    user,
+    invite_link:str
+) -> None:
+    """called by auth.service.onboard_manager()"""
+    subject = "You've been invited to Routify"
+    body = f"Hi {user.name}, set up your manager account here: {invite_link}"
+
+    try:
+        send_email(user.email, subject, body)
+        _log_notification(user.email, "email", body, "sent")
+    except Exception:
+        _log_notification(user.email,"email", body, "failed")
