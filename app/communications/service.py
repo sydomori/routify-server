@@ -85,3 +85,31 @@ def notify_manager_documents_pending(
         _log_notification(manager_phone, "sms", message, "sent")
     except Exception:
         _log_notification(manager_phone, "sms", message, "failed")
+
+def report_issue(
+    truck_id:int,
+    driver_id:int,
+    type: str,
+    description:str
+) -> TruckIssue:
+    """Creates the TruckIssue first — the record persists even if the SMS fails."""
+    issue = TruckIssue(
+        truck_id=truck_id,
+        driver_id=driver_id,
+        type=type,
+        description=description,
+        status="open",
+        reported_at=datetime.utcnow(),
+    )
+    db.session.add(issue)
+    db.session.commit()
+
+    manager_phone = _get_manager_phone_placeholder()
+    message = f"Truck #{truck_id} issue reported ({type}): {description}"
+    try:
+        send_sms(manager_phone, message)
+        _log_notification(manager_phone, "sms", message, "sent")
+    except Exception:
+        _log_notification(manager_phone, "sms", message, "failed")
+
+    return issue
