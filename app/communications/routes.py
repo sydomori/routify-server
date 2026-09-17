@@ -52,3 +52,10 @@ communications_bp.patch("/issues/<int:issue_id>/resolve")
 def resolve_issue(issue_id):
     issue = service.resolve_issue(issue_id)
     return jsonify(issue_schema.dump(issue)), 200
+
+@communications_bp.get("/logs")
+@jwt_required()
+@role_required("manager")
+def get_logs():
+    logs = service.list_notification_logs()
+    return jsonify(logs_schema.dump(logs)), 200
