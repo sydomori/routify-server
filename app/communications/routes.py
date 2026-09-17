@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.communications import service
 from marshmallow import ValidationError
+from app.auth.service import get_manager_phone
 
 from app.auth.decorators import role_required
 from app.communications.schemas import(
@@ -24,14 +25,14 @@ def create_issue():
 
     driver_id = get_jwt_identity()
 
-    #manager_phone = get_manager_phone(truck_id=data["truck_id"])
+    manager_phone = get_manager_phone(truck_id=data["truck_id"])
 
     issue = service.report_issue(
         truck_id=data["truck_id"],
         driver_id=driver_id,
         type=data["type"],
         description=data["description"],
-        #manager_phone=manager_phone,
+        manager_phone=manager_phone,
     )
     return jsonify(issue_schema.dump(issue)), 201
 
