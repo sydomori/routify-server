@@ -15,7 +15,7 @@ class TruckIssueCreateSchema(Schema):
         description = fields.Str(load_default="")
     )
 
-class TruckIssuesSchema(Schema):
+class TruckIssueSchema(Schema):
     """Serializes TruckIssue for responses"""
     id = fields.Int(dump_only=True)
     truck_id = fields.Int(dump_only=True)
@@ -35,3 +35,8 @@ class NotificationLogSchema(Schema):
     channel = fields.Str(dump_only=True)
     status = fields.Str(dump_only=True)
     sent_at = fields.DateTime(dump_only=True)
+
+issue_create_schema = TruckIssueCreateSchema()
+issue_schema = TruckIssueSchema()
+issues_schema = TruckIssueSchema(many=True)
+logs_schema = NotificationLogSchema(many=True)
