@@ -45,14 +45,8 @@ def send_manager_invite_email(
         _log_notification(user.email,"email", body, "failed")
 
 
-def _get_manager_phone_placeholder() -> str:
-    raise NotImplementedError(
-        """resolve manager phone number"""
-    )
-
 def notify_trip_started(trip, manager_phone:str) -> None:
     """called by trips.service.start_trip()"""
-    manager_phone = _get_manager_phone_placeholder()
     message = f"Trip #{trip.id} started (truck #{trip.truck.id}, driver #{trip.driver.id})."
     try:
         send_sms(manager_phone, message)
@@ -63,7 +57,6 @@ def notify_trip_started(trip, manager_phone:str) -> None:
 
 def notify_trip_ended(trip, manager_phone:str) -> None:
     """called by trips.service.end_trip"""
-    manager_phone = _get_manager_phone_placeholder()
     message = f"Trip #{trip.id} ended (truck #{trip.truck.id}, driver #{trip.driver.id})."
 
     try:
@@ -78,7 +71,6 @@ def notify_manager_documents_pending(
     manager_phone:str
 ) -> None:
     """Called by documents.service.upload_document()"""
-    manager_phone  = _get_manager_phone_placeholder()
     message = f"Driver #{driver_id} has submitted pending documents for review."
 
     try:
@@ -106,7 +98,6 @@ def report_issue(
     db.session.add(issue)
     db.session.commit()
 
-    manager_phone = _get_manager_phone_placeholder()
     message = f"Truck #{truck_id} issue reported ({type}): {description}"
     try:
         send_sms(manager_phone, message)
