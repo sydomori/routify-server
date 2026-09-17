@@ -53,7 +53,19 @@ def _get_manager_phone_placeholder() -> str:
 def notify_trip_started(trip) -> None:
     """called by trips.service.start_trip()"""
     manager_phone = _get_manager_phone_placeholder()
-    message = f"Trip #{trip.id} started (truck #{trip.truck.id})."
+    message = f"Trip #{trip.id} started (truck #{trip.truck.id}, driver #{trip.driver.id})."
+    try:
+        send_sms(manager_phone, message)
+        _log_notification(manager_phone, "sms", message, "sent", trip.id)
+    except Exception:
+        _log_notification(manager_phone, "sms", message, "failed", trip.id)
+
+
+def notify_trip_ended(trip):
+    """called by trips.service.end_trip"""
+    manager_phone = _get_manager_phone_placeholder()
+    message = f"Trip #{trip.id} ended (truck #{trip.truck.id}, driver #{trip.driver.id})."
+
     try:
         send_sms(manager_phone, message)
         _log_notification(manager_phone, "sms", message, "sent", trip.id)
