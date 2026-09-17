@@ -71,3 +71,17 @@ def notify_trip_ended(trip):
         _log_notification(manager_phone, "sms", message, "sent", trip.id)
     except Exception:
         _log_notification(manager_phone, "sms", message, "failed", trip.id)
+
+
+def notify_manager_documents_pending(
+    driver_id:int
+) -> None:
+    """Called by documents.service.upload_document()"""
+    manager_phone  = _get_manager_phone_placeholder()
+    message = f"Driver #{driver_id} has submitted pending documents for review."
+
+    try:
+        send_sms(manager_phone, message)
+        _log_notification(manager_phone, "sms", message, "sent")
+    except Exception:
+        _log_notification(manager_phone, "sms", message, "failed")
