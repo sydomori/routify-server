@@ -14,3 +14,14 @@ class TruckIssueCreateSchema(Schema):
         ),
         description = fields.Str(load_default="")
     )
+
+class TruckIssuesSchema(Schema):
+    """Serializes TruckIssue for responses"""
+    id = fields.Int(dump_only=True)
+    truck_id = fields.Int(dump_only=True)
+    driver_id = fields.Int(dump_only=True)
+    type = fields.Str(dump_only=True)
+    description = fields.Str(dump_only=True)
+    status = fields.Str(dump_only=True)
+    reported_at = fields.DateTime(dump_only=True)
+    resolved_at = fields.DateTime(dump_only=True, allow_none=True)
