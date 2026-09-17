@@ -25,3 +25,13 @@ class TruckIssuesSchema(Schema):
     status = fields.Str(dump_only=True)
     reported_at = fields.DateTime(dump_only=True)
     resolved_at = fields.DateTime(dump_only=True, allow_none=True)
+
+
+class NotificationLogSchema(Schema):
+    """Serializes a NotificationLog for the manager's logs view."""
+    id = fields.Int(dump_only=True)
+    trip_id = fields.Int(dump_only=True, allow_none=True)
+    recipient = fields.Str(dump_only=True)
+    channel = fields.Str(dump_only=True)
+    status = fields.Str(dump_only=True)
+    sent_at = fields.DateTime(dump_only=True)
