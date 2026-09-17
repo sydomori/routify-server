@@ -25,3 +25,12 @@ def create_issue():
         "status":issue.status,
         "reported_at":issue.reported_at.isoformat(),
     }), 201
+
+@communications_bp.get("/issues")
+@jwt_required()
+@role_required("manager")
+def get_issues():
+    status = request.args.get("status")
+    truck_id = request.args.get("truck_id", type=int)
+    issues = service.list_issues(status=status, truck_id=truck_id)
+    return jsonify(service.truck_issues_schema.dump(issues)), 200
