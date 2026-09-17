@@ -22,6 +22,13 @@ class Config:
     SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
     SUPABASE_BUCKET = os.environ.get('SUPABASE_BUCKET', "driver-documents")
 
+    MAIL_SERVER = os.environ.get("MAIL_SERVER")
+    MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "True") == "True"
+    MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER")
+
     #frontend origin for CORS, default to localhost:5173 for development
     FRONTEND_ORIGIN = os.environ.get('FRONTEND_ORIGIN', "http://localhost:5173")
 
