@@ -1,13 +1,25 @@
-from twilio.rest import Client
+import africastalking
 from flask import current_app
 
-def send_sms(to:str, message:str) -> None:
-    client = Client(
-        current_app.config["TWILIO_ACCOUNT_SID"],
-        current_app.config["TWILIO_AUTH_TOKEN"]
-    )
-    client.messages.create(
-        to=to,
-        from_=current_app.config["TWILIO_PHONE_NUMBER"],
-        body=message
-    )
+_initialized = False
+
+def _ensure_initialized():
+    global _initialized
+    if not _initialized:
+        africastalking.initialize(
+            current_app.config["AT_USERNAME"],
+            current_app.config["AT_API_KEY"],
+        )
+        _initialized = True
+
+def send_sms(to: str, message: str) -> None:
+    _ensure_initialized()
+    sms = africastalking.SMS
+    response = sms.send(message, [to])
+
+    recipients = response.get("SMSMessageData", {}).get("Recipients", [])
+    if not recipients or recipients[0].get("status") != "Success":
+        # Africa's Talking returns 200 with a per-recipient status field even
+        # on failure — it doesn't raise on its own, so we raise here to keep
+        # the same contract service.py already expects (an exception on failure).
+        raise RuntimeError(f"Africa's Talking SMS failed: {response}")
