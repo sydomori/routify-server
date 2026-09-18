@@ -18,7 +18,7 @@ class Config:
     SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
     SUPABASE_BUCKET = os.environ.get('SUPABASE_BUCKET', "driver-documents")
 
-    #Africa-talking sms intergration
+    #Africa-talking sms integration
     AT_USERNAME = os.environ.get("AT_USERNAME")
     AT_API_KEY = os.environ.get("AT_API_KEY")  
 
