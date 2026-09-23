@@ -47,7 +47,7 @@ def get_issues():
     return jsonify(issues_schema.dump(issues)), 200
 
 
-communications_bp.patch("/issues/<int:issue_id>/resolve")
+@communications_bp.patch("/issues/<int:issue_id>/resolve")
 @jwt_required()
 @role_required("manager")
 def resolve_issue(issue_id):

@@ -21,4 +21,4 @@ pytest-cov==6.0.0
 supabase==2.31.0
 supabase-auth==2.31.0
 supabase-functions==2.31.0
-africastalking==2.0.3
+curl_cffi==0.16.3
