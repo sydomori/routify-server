@@ -18,3 +18,8 @@ def test_missing_truck_id_is_rejected():
     with pytest.raises(ValidationError) as exc_info:
         schema.load({"type": "fuel"})
     assert "truck_id" in exc_info.value.messages
+
+def test_description_defaults_to_empty_string_when_omitted():
+    schema = TruckIssueCreateSchema()
+    data = schema.load({"truck_id": 1, "type": "fuel"})
+    assert data["description"] == ""
