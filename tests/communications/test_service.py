@@ -27,3 +27,15 @@ def test_report_issue_persists_even_when_sms_fails(app, db, monkeypatch):
     failed_log = NotificationLog.query.filter_by(status="failed").first()
     assert failed_log is not None
     assert failed_log.channel == "sms"
+
+def test_send_onboarding_sms_never_raises_on_provider_failure(app, db, monkeypatch):
+    """auth.service.onboard_driver() must be able to call this without
+    wrapping it in its own try/except — the guarantee lives here."""
+    monkeypatch.setattr(service, "send_sms", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+
+    # Should not raise:
+    service.send_onboarding_sms(phone="+254700000000", temp_password="temp123")
+
+    log = NotificationLog.query.filter_by(channel="sms", status="failed").first()
+    assert log is not None
+    assert log.recipient == "+254700000000"
