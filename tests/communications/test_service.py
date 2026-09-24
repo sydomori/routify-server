@@ -53,3 +53,14 @@ def test_send_manager_invite_email_never_raises_on_provider_failure(app, db, mon
     log = NotificationLog.query.filter_by(channel="email", status="failed").first()
     assert log is not None
     assert log.recipient == "jane@example.com"
+
+
+def test_resolve_issue_transitions_status_and_sets_resolved_at(app, db):
+    issue = TruckIssue(truck_id=1, driver_id=2, type="mechanical", status="open")
+    db.session.add(issue)
+    db.session.commit()
+
+    resolved = service.resolve_issue(issue.id)
+
+    assert resolved.status == "resolved"
+    assert resolved.resolved_at is not None
