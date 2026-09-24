@@ -9,7 +9,8 @@ from app.auth.exceptions import(
     UserNotFoundError,
     DuplicateUserError,
     NotADriverError,
-    InvalidDriverStatusError
+    InvalidDriverStatusError,
+    NoManagerFoundError,
 )
 
 #control panel for tracking and logging auth service operations
@@ -310,3 +311,12 @@ def deactivate_driver(
     driver = _get_driver_or_raise(driver_id)
     driver.is_active = False
     db.session.commit()
+
+def get_manager_phone(
+    truck_id: int | None = None,
+    driver_id:int | None = None
+) -> str:
+    manager = User.query.filter_by(role="manager").order_by(User.id.asc()).first()
+    if manager is None:
+        raise NoManagerFoundError("No manager exists to notify")
+    return manager.phone
