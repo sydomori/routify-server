@@ -39,3 +39,17 @@ def test_send_onboarding_sms_never_raises_on_provider_failure(app, db, monkeypat
     log = NotificationLog.query.filter_by(channel="sms", status="failed").first()
     assert log is not None
     assert log.recipient == "+254700000000"
+
+def test_send_manager_invite_email_never_raises_on_provider_failure(app, db, monkeypatch):
+    """Same guarantee, email channel — auth.service.onboard_manager() relies
+    on this not raising either."""
+    monkeypatch.setattr(service, "send_email", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("smtp down")))
+
+    fake_user = SimpleNamespace(name="Jane Manager", email="jane@example.com")
+
+    # Should not raise:
+    service.send_manager_invite_email(fake_user, invite_link="https://routify.app/invite/abc123")
+
+    log = NotificationLog.query.filter_by(channel="email", status="failed").first()
+    assert log is not None
+    assert log.recipient == "jane@example.com"
