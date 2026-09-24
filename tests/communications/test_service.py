@@ -64,3 +64,18 @@ def test_resolve_issue_transitions_status_and_sets_resolved_at(app, db):
 
     assert resolved.status == "resolved"
     assert resolved.resolved_at is not None
+
+
+def test_list_issues_filters_by_status_and_truck_id(app, db):
+    db.session.add_all([
+        TruckIssue(truck_id=1, driver_id=2, type="fuel", status="open"),
+        TruckIssue(truck_id=1, driver_id=2, type="mechanical", status="resolved"),
+        TruckIssue(truck_id=2, driver_id=3, type="fuel", status="open"),
+    ])
+    db.session.commit()
+
+    open_on_truck_1 = service.list_issues(status="open", truck_id=1)
+
+    assert len(open_on_truck_1) == 1
+    assert open_on_truck_1[0].type == "fuel"
+    assert open_on_truck_1[0].truck_id == 1
