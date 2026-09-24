@@ -12,8 +12,9 @@ class TruckIssueCreateSchema(Schema):
         validate=validate.OneOf(
             ["fuel", "mechanical", "accident", "other" ]
         ),
-        description = fields.Str(load_default="")
     )
+    description = fields.Str(load_default="")
+
 
 class TruckIssueSchema(Schema):
     """Serializes TruckIssue for responses"""
