@@ -3,7 +3,10 @@
 class TruckError(Exception):
     """
      base class for trucks-module errors
-     inherits 
+     inherits Exception
     """
 
     status_code = 400
+
+class TruckNotFoundError(TruckError):
+    status_code = 404
