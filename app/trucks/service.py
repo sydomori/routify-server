@@ -48,3 +48,9 @@ def create_truck(
 def list_trucks() -> list[Truck]:
     return list(db.session.scalars(db.select(Truck).order_by(Truck.id)))
 
+def get_truck(truck_id:int) -> Truck:
+    truck = db.session.get(Truck,truck_id)
+    if truck is None:
+        raise TruckNotFoundError(f"Truck {truck_id} not found")
+
+    return truck
