@@ -44,3 +44,7 @@ def create_truck(
     db.session.commit()
 
     return truck
+
+def list_trucks() -> list[Truck]:
+    return list(db.session.scalars(db.select(Truck).order_by(Truck.id)))
+
