@@ -17,3 +17,7 @@ class DuplicatePlateError(TruckError):
 class TruckBusyError(TruckError):
     """Truck is on an active trip"""
     status_code = 409
+
+class TruckInUseError(TruckError):
+    """Truck referenced by other records (trips, issues) and can't be deleted"""
+    status_code = 409
