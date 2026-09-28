@@ -13,3 +13,11 @@ class TruckUpdateSchema(Schema):
 
 class AssignDriverSchema(Schema):
     driver_id = fields.String(required=True,strict=True)
+
+class TruckSchema(Schema):
+    id = fields.Integer(dump_only=True)
+    plate_number = fields.String(dump_only=True)
+    model = fields.String(dump_only=True)
+    status = fields.String(dump_only=True)
+    driver_id = fields.Integer(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
