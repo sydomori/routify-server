@@ -13,3 +13,7 @@ class TruckNotFoundError(TruckError):
 
 class DuplicatePlateError(TruckError):
     status_code = 409
+
+class TruckBusyError(TruckError):
+    """Truck is on an active trip"""
+    status_code = 409
