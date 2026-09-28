@@ -21,3 +21,7 @@ class TruckBusyError(TruckError):
 class TruckInUseError(TruckError):
     """Truck referenced by other records (trips, issues) and can't be deleted"""
     status_code = 409
+
+class DriverInactiveError(PermissionError):
+    """Deactivated driver. Subclasses PermissionError so it maps to 403 like
+    the unverified-driver guard."""
