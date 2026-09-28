@@ -28,3 +28,19 @@ def _plate_taken(
     if exclude_id is not None:
         stmt = stmt.where(Truck.id != exclude_id)
     return db.session.scalar(stmt) is not None
+
+#-------CRUD----------
+
+def create_truck(
+    plate_number:str,
+    model: str | None = None,
+) -> Truck:
+    plate = _normalize_plate(plate_number)
+    if _plate_taken(plate):
+        raise DuplicatePlateError(f"Plate {plate} already exists")
+
+    truck = Truck(plate_number=plate, model=model,status="idle")
+    db.session.add(truck)
+    db.session.commit()
+
+    return truck
