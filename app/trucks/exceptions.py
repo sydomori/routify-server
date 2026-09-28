@@ -10,3 +10,6 @@ class TruckError(Exception):
 
 class TruckNotFoundError(TruckError):
     status_code = 404
+
+class DuplicatePlateError(TruckError):
+    status_code = 409
