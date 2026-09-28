@@ -17,3 +17,14 @@ UPDATABLE_FIELDS = {"plate_number", "model"}
 def _normalize_plate(plate:str) -> str:
     #plates are upper cased and whitespace collapsed
     return " ".join(plate.upper().split())
+
+def _plate_taken(
+    plate:str,
+    exclude_id: int | None = None
+) -> bool:
+    #selects id of any truck whose plate_number matches
+    stmt = db.select(Truck.id).where(Truck.plate_number == plate)
+    #skips truck if exclude_id is provided
+    if exclude_id is not None:
+        stmt = stmt.where(Truck.id != exclude_id)
+    return db.session.scalar(stmt) is not None
