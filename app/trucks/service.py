@@ -131,3 +131,14 @@ def assign_driver(
 
 def get_truck_by_driver(driver_id: int) -> Truck | None:
     return db.session.scalar(db.select(Truck).where(Truck.driver_id == driver_id))
+
+"""Name/status of assigned driver for listings and summaries"""
+def driver_summary(truck:Truck)-> dict | None:
+    if truck.driver_id is None:
+        return None
+
+    try:
+        user = get_user_by_id(truck.driver_id)
+    except UserNotFoundError:
+        return None
+    return {"id":user.id,"name":user.name,"driver_status":user.driver_status}
