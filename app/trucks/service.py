@@ -54,3 +54,26 @@ def get_truck(truck_id:int) -> Truck:
         raise TruckNotFoundError(f"Truck {truck_id} not found")
 
     return truck
+
+def update_truck(
+    truck_id: int,
+    **fields
+) -> Truck:
+    unknown = set(fields) - UPDATABLE_FIELDS
+    if unknown:
+        raise ValueError(f"Cannot update:{','.join(sorted(unknown))}")
+    truck = get_truck(truck_id)
+    if "plate_number" in fields:
+        plate = _normalize_plate(fields["plate_number"])
+        if _plate_taken(plate,exclude_id=truck_id):
+            raise DuplicatePlateError(f"Plate {plate} already exists")
+        truck.plate_number = plate
+
+    if "model" in fields:
+        truck.model = fields["model"]
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise DuplicatePlateError("Plate already exists")
+    return truck 
