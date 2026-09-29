@@ -142,3 +142,10 @@ def driver_summary(truck:Truck)-> dict | None:
     except UserNotFoundError:
         return None
     return {"id":user.id,"name":user.name,"driver_status":user.driver_status}
+
+#------toggle status(called by trips)--------
+
+def mark_truck_active(truck_id: int) -> None:
+    truck = get_truck(truck_id)
+    truck.status = "active"
+    db.session.commit()
