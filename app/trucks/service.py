@@ -77,3 +77,14 @@ def update_truck(
         db.session.rollback()
         raise DuplicatePlateError("Plate already exists")
     return truck 
+
+def delete_truck(truck_id:id):
+    truck = get_truck(truck_id)
+    if truck.status == "active":
+        raise TruckBusyError("Truck is on an active trip")
+    db.session.delete(truck)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise TruckInUseError("Truck has trips or issue reports and can't be deleted")
