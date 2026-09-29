@@ -88,3 +88,46 @@ def delete_truck(truck_id:id):
     except IntegrityError:
         db.session.rollback()
         raise TruckInUseError("Truck has trips or issue reports and can't be deleted")
+
+
+#------Driver assignment-------------------
+
+def assign_driver(
+    truck_id:int,
+    driver_id: int
+) -> Truck:
+    """
+     Second document verification point after trips.start_trip
+     Moving a driver from a truck is allowed after the truck is cleared (one drive per truck)
+    """
+
+    truck = get_truck(truck_id)
+
+    if get_driver_status(driver_id) != "verified":
+        raise PermissionError("Driver documents not verified")
+
+    #check if driver is active
+    if not get_user_by_id(driver_id).is_active:
+        raise DriverInactiveError("Driver is inactive")
+
+    #check if driver is already assigned
+    if truck.driver_id == driver_id:
+        return truck
+
+    #cant assign driver to a truck with an active trip
+    if truck.status =="active":
+        raise TruckBusyError("Truck is on an active trip")
+
+    previous = get_truck_by_driver(driver_id)
+    if previous is not None:
+        if previous.status == "active":
+            raise TruckBusyError("Driver's current truck is on an active trip")
+        previous.driver_id = None
+        db.session.flush() #free the unique driver id before reassignment
+
+    truck.driver_id = driver_id
+    db.session.commit()
+    return truck
+
+def get_truck_by_driver(driver_id: int) -> Truck | None:
+    return db.session.scalar(db.select(Truck).where(Truck.driver_id == driver_id))
