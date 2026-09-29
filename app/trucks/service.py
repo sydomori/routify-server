@@ -149,3 +149,8 @@ def mark_truck_active(truck_id: int) -> None:
     truck = get_truck(truck_id)
     truck.status = "active"
     db.session.commit()
+
+def mark_truck_idle(truck_id: int) -> None:
+    truck = get_truck(truck_id)
+    truck.status = "idle"
+    db.session.commit()
