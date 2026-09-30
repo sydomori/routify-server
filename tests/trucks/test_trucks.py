@@ -35,3 +35,11 @@ def test_assign_verified_driver(make_user):
     t = service.create_truck("KAA 111A", "Isuzu")
     service.assign_driver(t.id, d.id)
     assert service.get_truck_by_driver(d.id).id == t.id
+
+@pytest.mark.parametrize("status", ["pending_documents", "pending_review", "rejected"])
+def test_assign_unverified_driver_rejected(make_user, status):
+    d = make_user(role="driver", driver_status=status)
+    t = service.create_truck("KAA 111A", "Isuzu")
+    with pytest.raises(PermissionError):
+        service.assign_driver(t.id, d.id)
+    assert service.get_truck(t.id).driver_id is None
