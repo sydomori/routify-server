@@ -16,9 +16,9 @@ from app.trucks.schemas import (
 trucks_bp = Blueprint("trucks",__name__)
 
 _truck_schema = TruckSchema()
-_create_schema = TruckCreateSchema
-_update_schema = TruckUpdateSchema
-_assign_schema = AssignDriverSchema
+_create_schema = TruckCreateSchema()
+_update_schema = TruckUpdateSchema()
+_assign_schema = AssignDriverSchema()
 
 def _present(truck):
     data = _truck_schema.dump(truck)
