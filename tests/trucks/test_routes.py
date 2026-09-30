@@ -20,3 +20,9 @@ def test_validation_and_duplicate(client, manager, auth_headers):
     assert client.post("/api/trucks", json={}, headers=h).status_code == 400
     _create(client, h)
     assert _create(client, h).status_code == 409
+
+def test_patch_rejects_status(client, manager, auth_headers):
+    h = auth_headers(manager)
+    tid = _create(client, h).json["id"]
+    assert client.patch(f"/api/trucks/{tid}", json={"status": "active"}, headers=h).status_code == 400
+    assert client.patch(f"/api/trucks/{tid}", json={"model": "Fuso"}, headers=h).json["model"] == "Fuso"
