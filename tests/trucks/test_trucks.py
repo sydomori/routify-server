@@ -29,3 +29,9 @@ def test_update_only_allows_plate_and_model():
 def test_get_missing_truck():
     with pytest.raises(TruckNotFoundError):
         service.get_truck(999)
+
+def test_assign_verified_driver(make_user):
+    d = make_user(role="driver", driver_status="verified")
+    t = service.create_truck("KAA 111A", "Isuzu")
+    service.assign_driver(t.id, d.id)
+    assert service.get_truck_by_driver(d.id).id == t.id
