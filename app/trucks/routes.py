@@ -40,3 +40,7 @@ def _validation(err):
 @trucks_bp.errorhandler(TruckError)
 def _truck_error(err):
     return jsonify({"error": str(err)}), err.status_code
+
+@trucks_bp.errorhandler(PermissionError)
+def _permission(err):
+    return jsonify({"error": str(err)}), 403
