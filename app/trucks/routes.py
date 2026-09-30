@@ -62,3 +62,9 @@ def create_truck_route():
     data = _create_schema.load(_body())
     truck = service.create_truck(**data)
     return jsonify(_present(truck)), 201
+
+@trucks_bp.get("/trucks")
+@jwt_required()
+@password_change_required
+def list_trucks_route():
+    return jsonify([_present(truck) for truck in service.list_trucks()]), 200
