@@ -81,3 +81,10 @@ def get_truck_route(truck_id):
 def update_truck_route(truck_id):
     data = _update_schema.load(_body())
     return jsonify(_present(service.update_truck(truck_id, **data))), 200
+
+@trucks_bp.delete("/trucks/<int:truck_id>")
+@role_required("manager")
+@password_change_required
+def delete_truck_route(truck_id):
+    service.delete_truck(truck_id)
+    return "", 204
