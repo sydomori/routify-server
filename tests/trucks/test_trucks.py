@@ -58,3 +58,12 @@ def test_assign_manager_or_missing_user(make_user, manager):
         service.assign_driver(t.id, manager.id)
     with pytest.raises(UserNotFoundError):
         service.assign_driver(t.id, 9999)
+
+def test_assigning_moves_driver_off_previous_truck(make_user):
+    d = make_user(role="driver", driver_status="verified")
+    a = service.create_truck("KAA 111A", "Isuzu")
+    b = service.create_truck("KBB 222B", "Fuso")
+    service.assign_driver(a.id, d.id)
+    service.assign_driver(b.id, d.id)
+    assert service.get_truck(a.id).driver_id is None
+    assert service.get_truck_by_driver(d.id).id == b.id
