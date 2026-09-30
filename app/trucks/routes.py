@@ -44,3 +44,7 @@ def _truck_error(err):
 @trucks_bp.errorhandler(PermissionError)
 def _permission(err):
     return jsonify({"error": str(err)}), 403
+
+@trucks_bp.errorhandler(UserNotFoundError)
+def _user_not_found(err):
+    return jsonify({"error": "Driver not found"}), 404
