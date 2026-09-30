@@ -14,3 +14,9 @@ def test_driver_cannot_create_but_can_list(client, driver, manager, auth_headers
     # make_user defaults must_change_password=False, so the driver fixture
     # is never gated by @password_change_required here.
     assert client.get("/api/trucks", headers=dh).status_code == 200
+
+def test_validation_and_duplicate(client, manager, auth_headers):
+    h = auth_headers(manager)
+    assert client.post("/api/trucks", json={}, headers=h).status_code == 400
+    _create(client, h)
+    assert _create(client, h).status_code == 409
