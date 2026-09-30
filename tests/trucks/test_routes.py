@@ -26,3 +26,15 @@ def test_patch_rejects_status(client, manager, auth_headers):
     tid = _create(client, h).json["id"]
     assert client.patch(f"/api/trucks/{tid}", json={"status": "active"}, headers=h).status_code == 400
     assert client.patch(f"/api/trucks/{tid}", json={"model": "Fuso"}, headers=h).json["model"] == "Fuso"
+
+def test_assign_driver_routes(client, manager, make_user, auth_headers):
+    h = auth_headers(manager)
+    tid = _create(client, h).json["id"]
+    ok = make_user(role="driver", driver_status="verified")
+    bad = make_user(role="driver", driver_status="pending_review")
+    url = f"/api/trucks/{tid}/assign-driver"
+    assert client.post(url, json={"driver_id": bad.id}, headers=h).status_code == 403
+    assert client.post(url, json={"driver_id": manager.id}, headers=h).status_code == 400
+    assert client.post(url, json={"driver_id": 9999}, headers=h).status_code == 404
+    r = client.post(url, json={"driver_id": ok.id}, headers=h)
+    assert r.status_code == 200 and r.json["driver"]["id"] == ok.id
