@@ -68,3 +68,9 @@ def create_truck_route():
 @password_change_required
 def list_trucks_route():
     return jsonify([_present(truck) for truck in service.list_trucks()]), 200
+
+@trucks_bp.get("/trucks/<int:truck_id>")
+@jwt_required()
+@password_change_required
+def get_truck_route(truck_id):
+    return jsonify(_present(service.get_truck(truck_id))), 200
