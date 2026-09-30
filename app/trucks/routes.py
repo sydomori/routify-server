@@ -55,7 +55,8 @@ def _not_a_driver(err):
 
 #----Routes----------
 
-@trucks_bp.post("/trucks")
+"""no prefix as it is already registered in the app"""
+@trucks_bp.post("")
 @role_required("manager")
 @password_change_required
 def create_truck_route():
@@ -63,26 +64,26 @@ def create_truck_route():
     truck = service.create_truck(**data)
     return jsonify(_present(truck)), 201
 
-@trucks_bp.get("/trucks")
+@trucks_bp.get("")
 @jwt_required()
 @password_change_required
 def list_trucks_route():
     return jsonify([_present(truck) for truck in service.list_trucks()]), 200
 
-@trucks_bp.get("/trucks/<int:truck_id>")
+@trucks_bp.get("/<int:truck_id>")
 @jwt_required()
 @password_change_required
 def get_truck_route(truck_id):
     return jsonify(_present(service.get_truck(truck_id))), 200
 
-@trucks_bp.patch("<int:truck_id>")
+@trucks_bp.patch("/<int:truck_id>")
 @role_required("manager")
 @password_change_required
 def update_truck_route(truck_id):
     data = _update_schema.load(_body())
     return jsonify(_present(service.update_truck(truck_id, **data))), 200
 
-@trucks_bp.delete("/trucks/<int:truck_id>")
+@trucks_bp.delete("/<int:truck_id>")
 @role_required("manager")
 @password_change_required
 def delete_truck_route(truck_id):
@@ -90,7 +91,7 @@ def delete_truck_route(truck_id):
     return "", 204
 
 
-@trucks_bp.post("/trucks/<int:truck_id>/assign-driver")
+@trucks_bp.post("/<int:truck_id>/assign-driver")
 @role_required("manager")
 @password_change_required
 def assign_driver_route(truck_id):
