@@ -25,3 +25,7 @@ def test_update_only_allows_plate_and_model():
     assert service.get_truck(t.id).model == "Fuso"
     with pytest.raises(ValueError):
         service.update_truck(t.id, status="active")
+
+def test_get_missing_truck():
+    with pytest.raises(TruckNotFoundError):
+        service.get_truck(999)
