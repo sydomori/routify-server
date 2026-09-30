@@ -53,3 +53,6 @@ def _register_blueprints(app):
 
     from app.communications.routes import communications_bp
     app.register_blueprint(communications_bp,url_prefix="/api/communications")
+
+    from app.trucks.routes import trucks_bp
+    app.register_blueprint(trucks_bp,url_prefix="/api/trucks")

@@ -82,8 +82,6 @@ def auth_headers(app):
 deleted once trucks and trips tables are created
 minimal stand in tables for testing
 """
-if "trucks" not in _db.metadata.tables:
-    _db.Table("trucks", _db.metadata, _db.Column("id", _db.Integer, primary_key=True))
 
 if "trips" not in _db.metadata.tables:
     _db.Table("trips", _db.metadata, _db.Column("id", _db.Integer, primary_key=True))

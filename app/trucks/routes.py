@@ -1,0 +1,100 @@
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
+from marshmallow import ValidationError
+
+from app.auth.decorators import role_required, password_change_required
+from app.auth.exceptions import NotADriverError, UserNotFoundError
+from app.trucks import service
+from app.trucks.exceptions import TruckError
+from app.trucks.schemas import (
+    AssignDriverSchema,
+    TruckCreateSchema,
+    TruckSchema,
+    TruckUpdateSchema,
+)
+
+trucks_bp = Blueprint("trucks",__name__)
+
+_truck_schema = TruckSchema()
+_create_schema = TruckCreateSchema()
+_update_schema = TruckUpdateSchema()
+_assign_schema = AssignDriverSchema()
+
+def _present(truck):
+    data = _truck_schema.dump(truck)
+    data["driver"] = service.driver_summary(truck)
+    return data
+
+def _body():
+    return request.get_json(silent=True) or {}
+
+#----Error mapping----------
+"""
+Error handlers catching the custom exceptions globally
+"""
+@trucks_bp.errorhandler(ValidationError)
+def _validation(err):
+    return jsonify({"error":"validation_error", "details": err.messages}), 400
+
+"""Handles exceptions for all its children"""
+@trucks_bp.errorhandler(TruckError)
+def _truck_error(err):
+    return jsonify({"error": str(err)}), err.status_code
+
+@trucks_bp.errorhandler(PermissionError)
+def _permission(err):
+    return jsonify({"error": str(err)}), 403
+
+@trucks_bp.errorhandler(UserNotFoundError)
+def _user_not_found(err):
+    return jsonify({"error": "Driver not found"}), 404
+
+@trucks_bp.errorhandler(NotADriverError)
+def _not_a_driver(err):
+    return jsonify({"error": "User is not a driver"}), 400
+
+#----Routes----------
+
+"""no prefix as it is already registered in the app"""
+@trucks_bp.post("")
+@role_required("manager")
+@password_change_required
+def create_truck_route():
+    data = _create_schema.load(_body())
+    truck = service.create_truck(**data)
+    return jsonify(_present(truck)), 201
+
+@trucks_bp.get("")
+@jwt_required()
+@password_change_required
+def list_trucks_route():
+    return jsonify([_present(truck) for truck in service.list_trucks()]), 200
+
+@trucks_bp.get("/<int:truck_id>")
+@jwt_required()
+@password_change_required
+def get_truck_route(truck_id):
+    return jsonify(_present(service.get_truck(truck_id))), 200
+
+@trucks_bp.patch("/<int:truck_id>")
+@role_required("manager")
+@password_change_required
+def update_truck_route(truck_id):
+    data = _update_schema.load(_body())
+    return jsonify(_present(service.update_truck(truck_id, **data))), 200
+
+@trucks_bp.delete("/<int:truck_id>")
+@role_required("manager")
+@password_change_required
+def delete_truck_route(truck_id):
+    service.delete_truck(truck_id)
+    return "", 204
+
+
+@trucks_bp.post("/<int:truck_id>/assign-driver")
+@role_required("manager")
+@password_change_required
+def assign_driver_route(truck_id):
+    data = _assign_schema.load(_body())
+    truck = service.assign_driver(truck_id, data["driver_id"])
+    return jsonify(_present(truck)), 200
