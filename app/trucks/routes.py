@@ -52,3 +52,13 @@ def _user_not_found(err):
 @trucks_bp.errorhandler(NotADriverError)
 def _not_a_driver(err):
     return jsonify({"error": "User is not a driver"}), 400
+
+#----Routes----------
+
+@trucks_bp.post("/trucks")
+@role_required("manager")
+@password_change_required
+def create_truck_route():
+    data = _create_schema.load(_body())
+    truck = service.create_truck(**data)
+    return jsonify(_present(truck)), 201
