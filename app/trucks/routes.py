@@ -35,3 +35,8 @@ Error handlers catching the custom exceptions globally
 @trucks_bp.errorhandler(ValidationError)
 def _validation(err):
     return jsonify({"error":"validation_error", "details": err.messages}), 400
+
+"""Handles exceptions for all its children"""
+@trucks_bp.errorhandler(TruckError)
+def _truck_error(err):
+    return jsonify({"error": str(err)}), err.status_code
