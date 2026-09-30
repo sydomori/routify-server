@@ -51,3 +51,10 @@ def test_assign_inactive_driver_rejected(make_user, db):
     t = service.create_truck("KAA 111A", "Isuzu")
     with pytest.raises(DriverInactiveError):
         service.assign_driver(t.id, d.id)
+
+def test_assign_manager_or_missing_user(make_user, manager):
+    t = service.create_truck("KAA 111A", "Isuzu")
+    with pytest.raises(NotADriverError):
+        service.assign_driver(t.id, manager.id)
+    with pytest.raises(UserNotFoundError):
+        service.assign_driver(t.id, 9999)
