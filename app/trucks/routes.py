@@ -74,3 +74,10 @@ def list_trucks_route():
 @password_change_required
 def get_truck_route(truck_id):
     return jsonify(_present(service.get_truck(truck_id))), 200
+
+@trucks_bp.patch("<int:truck_id>")
+@role_required("manager")
+@password_change_required
+def update_truck_route(truck_id):
+    data = _update_schema.load(_body())
+    return jsonify(_present(service.update_truck(truck_id, **data))), 200
