@@ -67,3 +67,14 @@ def test_assigning_moves_driver_off_previous_truck(make_user):
     service.assign_driver(b.id, d.id)
     assert service.get_truck(a.id).driver_id is None
     assert service.get_truck_by_driver(d.id).id == b.id
+
+def test_cannot_reassign_active_truck(make_user):
+    d1 = make_user(role="driver", driver_status="verified")
+    d2 = make_user(role="driver", driver_status="verified")
+    t = service.create_truck("KAA 111A", "Isuzu")
+    service.assign_driver(t.id, d1.id)
+    service.mark_truck_active(t.id)
+    with pytest.raises(TruckBusyError):
+        service.assign_driver(t.id, d2.id)
+    with pytest.raises(TruckBusyError):
+        service.delete_truck(t.id)
