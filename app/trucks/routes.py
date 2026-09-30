@@ -88,3 +88,12 @@ def update_truck_route(truck_id):
 def delete_truck_route(truck_id):
     service.delete_truck(truck_id)
     return "", 204
+
+
+@trucks_bp.post("/trucks/<int:truck_id>/assign-driver")
+@role_required("manager")
+@password_change_required
+def assign_driver_route(truck_id):
+    data = _assign_schema.load(_body())
+    truck = service.assign_driver(truck_id, data["driver_id"])
+    return jsonify(_present(truck)), 200
