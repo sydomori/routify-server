@@ -38,3 +38,9 @@ def test_assign_driver_routes(client, manager, make_user, auth_headers):
     assert client.post(url, json={"driver_id": 9999}, headers=h).status_code == 404
     r = client.post(url, json={"driver_id": ok.id}, headers=h)
     assert r.status_code == 200 and r.json["driver"]["id"] == ok.id
+
+def test_delete_and_404(client, manager, auth_headers):
+    h = auth_headers(manager)
+    tid = _create(client, h).json["id"]
+    assert client.delete(f"/api/trucks/{tid}", headers=h).status_code == 204
+    assert client.get(f"/api/trucks/{tid}", headers=h).status_code == 404
