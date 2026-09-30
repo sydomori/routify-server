@@ -12,7 +12,7 @@ class TruckUpdateSchema(Schema):
    model = fields.String(validate=validate.Length(max=100))
 
 class AssignDriverSchema(Schema):
-    driver_id = fields.String(required=True,strict=True)
+    driver_id = fields.Integer(required=True,strict=True)
 
 class TruckSchema(Schema):
     id = fields.Integer(dump_only=True)
