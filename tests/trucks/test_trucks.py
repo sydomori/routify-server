@@ -43,3 +43,11 @@ def test_assign_unverified_driver_rejected(make_user, status):
     with pytest.raises(PermissionError):
         service.assign_driver(t.id, d.id)
     assert service.get_truck(t.id).driver_id is None
+
+def test_assign_inactive_driver_rejected(make_user, db):
+    d = make_user(role="driver", driver_status="verified")
+    d.is_active = False
+    db.session.commit()
+    t = service.create_truck("KAA 111A", "Isuzu")
+    with pytest.raises(DriverInactiveError):
+        service.assign_driver(t.id, d.id)
