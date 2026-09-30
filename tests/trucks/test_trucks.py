@@ -78,3 +78,11 @@ def test_cannot_reassign_active_truck(make_user):
         service.assign_driver(t.id, d2.id)
     with pytest.raises(TruckBusyError):
         service.delete_truck(t.id)
+
+def test_status_transitions_and_no_truck_for_driver(driver):
+    t = service.create_truck("KAA 111A", "Isuzu")
+    service.mark_truck_active(t.id)
+    assert service.get_truck(t.id).status == "active"
+    service.mark_truck_idle(t.id)
+    assert service.get_truck(t.id).status == "idle"
+    assert service.get_truck_by_driver(driver.id) is None
