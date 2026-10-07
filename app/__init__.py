@@ -19,7 +19,7 @@ def create_app(config_name=None):
     validate_config(app, config_name)
     _init_extensions(app)
     _register_blueprints(app)
-
+    _register_error_handlers(app)
     @app.get("/api/health")
     def health_check():
         """health check endpoint to verify the app is running"""
@@ -58,6 +58,32 @@ def validate_config(app, config_name):
             "Set these as real environment variables before starting the app — "
             "do not rely on config.py's development fallback defaults in production."
         )
+
+def _register_error_handlers(app):
+    """consistent JSON error responses for all unhandled exceptions, including HTTPException subclasses"""
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(err):
+        return jsonify(
+            {
+                "error": err.name,
+                "message": err.description,
+                "request_id": g.get("request_id", "-"),
+            }
+        ), err.code
+ 
+    @app.errorhandler(Exception)
+    def handle_unexpected_exception(err):
+        # Full detail goes to the server-side structured log, correlated by
+        # request_id — never to the response body.
+        app.logger.exception("Unhandled exception")
+        return jsonify(
+            {
+                "error": "Internal Server Error",
+                "message": "Something went wrong. Reference the request ID if contacting support.",
+                "request_id": g.get("request_id", "-"),
+            }
+        ), 500
+
 
 def _init_extensions(app):
     db.init_app(app)
