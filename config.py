@@ -38,6 +38,12 @@ class Config:
     #frontend origin for CORS, default to localhost:5173 for development
     FRONTEND_ORIGIN = os.environ.get('FRONTEND_ORIGIN', "http://localhost:5173")
 
+    # Flask-Limiter storage. In-memory is fine for a single-instance Phase 1
+    # deployment; move to a real backend (e.g. Redis) only if/when Phase 2's
+    # multiple-instance setup makes in-memory limits inconsistent across instances.
+    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_DEFAULT = "200 per day;50 per hour"
+
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or (f"sqlite:///{os.path.join(basedir, 'dev.db')}")
