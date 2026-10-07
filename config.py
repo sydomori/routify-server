@@ -69,3 +69,6 @@ config_by_name = {
     'testing': TestingConfig,
     'production': ProductionConfig
 }
+
+# Vars validate_config() requires to be non-empty outside development/testing.
+REQUIRED_IN_PRODUCTION = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL"]
