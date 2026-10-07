@@ -26,9 +26,10 @@ def create_app(config_name=None):
         db_status = "ok"
         try:
             db.session.execute("SELECT 1")
-        except Exception as e:
-            db_status = f"error: {str(e)}"
-
+        except Exception:
+            """Dont leak raw exception, might contain connection string or other sensitive info. Log it instead."""
+            app.logger.exception("Health check db connectivity failure")
+            db_status = "error"
         return jsonify(
             {
                 "status": "healthy",
