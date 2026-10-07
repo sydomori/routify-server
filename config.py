@@ -8,7 +8,9 @@ class Config:
 
     SECRET_KEY = os.environ.get('SECRET_KEY',"dev-secret-change-me")
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY',"dev-jwt-secret-change-me")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=12)
+
+    #NFR-SEC-02: access token expires after 15 minutes. Paired with refresh token for long-lived sessions.
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
