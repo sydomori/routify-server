@@ -58,16 +58,11 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
-    def __init__(self):
-        "fail loudly if production secrets were left at dev defaults"
-        if not os.environ.get("SECRET_KEY") or not os.environ.get("JWT_SECRET_KEY"):
-            raise RuntimeError(
-               "SECRET_KEY and JWT_SECRET_KEY must be set via environment "
-                "variables in production."   
-            )
-        
-        if not self.SQLALCHEMY_DATABASE_URI:
-            raise RuntimeError("DATABASE_URL must be set in production")
+    # fail-fast validation intentionally does NOT live here anymore.
+    # app.config.from_object() is passed this class directly, never an
+    # instance — so an __init__ check here would silently never run. See
+    # validate_config() in app/__init__.py, which is the version that
+    # actually executes, called explicitly after config is loaded.
 
 config_by_name = {
     'development': DevelopmentConfig,
