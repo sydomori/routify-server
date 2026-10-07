@@ -1,4 +1,5 @@
 import os
+import uuid
 from flask import Flask,jsonify,g, request
 from werkzeug.exceptions import HTTPException
 from pythonjsonlogger import jsonlogger
@@ -20,6 +21,7 @@ def create_app(config_name=None):
     _init_extensions(app)
     _register_blueprints(app)
     _register_error_handlers(app)
+    _register_request_id(app)
     @app.get("/api/health")
     def health_check():
         """health check endpoint to verify the app is running"""
@@ -58,6 +60,24 @@ def validate_config(app, config_name):
             "Set these as real environment variables before starting the app — "
             "do not rely on config.py's development fallback defaults in production."
         )
+    
+def _register_request_id(app):
+    """
+    every request gets a correlation ID: reused from an incoming
+    X-Request-ID header if the client/proxy supplied one, otherwise generated.
+    Available as g.request_id anywhere during the request (route handlers,
+    service functions, audit.service.record() calls), and echoed back in the
+    response header for client-side correlation/debugging.
+    """
+ 
+    @app.before_request
+    def set_request_id():
+        g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+ 
+    @app.after_request
+    def add_request_id_header(response):
+        response.headers["X-Request-ID"] = g.get("request_id", "-")
+        return response
 
 def _register_error_handlers(app):
     """consistent JSON error responses for all unhandled exceptions, including HTTPException subclasses"""
