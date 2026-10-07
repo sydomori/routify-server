@@ -2,5 +2,6 @@
     "cSpell.words": [
         "africastalking",
         "SUPABASE"
-    ]
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }
