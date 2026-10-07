@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from flask import Flask,jsonify,g, request
 from werkzeug.exceptions import HTTPException
 from pythonjsonlogger import jsonlogger
@@ -18,10 +19,11 @@ def create_app(config_name=None):
     app.config.from_object(config_by_name[config_name])
 
     validate_config(app, config_name)
+    _configure_logging(app)
     _init_extensions(app)
-    _register_blueprints(app)
-    _register_error_handlers(app)
     _register_request_id(app)
+    _register_error_handlers(app)
+    _register_blueprints(app)
     @app.get("/api/health")
     def health_check():
         """health check endpoint to verify the app is running"""
@@ -60,6 +62,31 @@ def validate_config(app, config_name):
             "Set these as real environment variables before starting the app — "
             "do not rely on config.py's development fallback defaults in production."
         )
+
+def _configure_logging(app):
+    """S1/S2 — structured JSON logs that include the per-request correlation
+    ID (see _register_request_id). Never log raw secrets: passwords, temp
+    passwords, JWTs, API keys, or document content must never be passed into
+    any log call anywhere in the app, in any module."""
+ 
+    handler = logging.StreamHandler()
+    formatter = jsonlogger.JsonFormatter(
+        "%(asctime)s %(levelname)s %(name)s %(message)s %(request_id)s"
+    )
+    handler.setFormatter(formatter)
+ 
+    # Inject request_id into every log record, even ones logged outside a
+    # request context (falls back to "-" so the formatter never KeyErrors).
+    class RequestIdFilter(logging.Filter):
+        def filter(self, record):
+            record.request_id = getattr(g, "request_id", "-") if g else "-"
+            return True
+ 
+    handler.addFilter(RequestIdFilter())
+ 
+    app.logger.handlers.clear()
+    app.logger.addHandler(handler)
+    app.logger.setLevel(logging.INFO if not app.config.get("DEBUG") else logging.DEBUG)
     
 def _register_request_id(app):
     """
