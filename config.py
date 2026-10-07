@@ -12,6 +12,9 @@ class Config:
     #NFR-SEC-02: access token expires after 15 minutes. Paired with refresh token for long-lived sessions.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
 
+    #NFR-SEC-03: refresh token expires after 7 days. Paired with access token for long-lived sessions.
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     #third party integrations read from env, not hardcoded in config.py
