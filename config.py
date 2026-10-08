@@ -8,7 +8,12 @@ class Config:
 
     SECRET_KEY = os.environ.get('SECRET_KEY',"dev-secret-change-me")
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY',"dev-jwt-secret-change-me")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=12)
+
+    #NFR-SEC-02: access token expires after 15 minutes. Paired with refresh token for long-lived sessions.
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
+
+    #NFR-SEC-03: refresh token expires after 7 days. Paired with access token for long-lived sessions.
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -33,6 +38,12 @@ class Config:
     #frontend origin for CORS, default to localhost:5173 for development
     FRONTEND_ORIGIN = os.environ.get('FRONTEND_ORIGIN', "http://localhost:5173")
 
+    # Flask-Limiter storage. In-memory is fine for a single-instance Phase 1
+    # deployment; move to a real backend (e.g. Redis) only if/when Phase 2's
+    # multiple-instance setup makes in-memory limits inconsistent across instances.
+    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_DEFAULT = "200 per day;50 per hour"
+
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or (f"sqlite:///{os.path.join(basedir, 'dev.db')}")
@@ -47,19 +58,17 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
-    def __init__(self):
-        "fail loudly if production secrets were left at dev defaults"
-        if not os.environ.get("SECRET_KEY") or not os.environ.get("JWT_SECRET_KEY"):
-            raise RuntimeError(
-               "SECRET_KEY and JWT_SECRET_KEY must be set via environment "
-                "variables in production."   
-            )
-        
-        if not self.SQLALCHEMY_DATABASE_URI:
-            raise RuntimeError("DATABASE_URL must be set in production")
+    # fail-fast validation intentionally does NOT live here anymore.
+    # app.config.from_object() is passed this class directly, never an
+    # instance — so an __init__ check here would silently never run. See
+    # validate_config() in app/__init__.py, which is the version that
+    # actually executes, called explicitly after config is loaded.
 
 config_by_name = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,
     'production': ProductionConfig
 }
+
+# Vars validate_config() requires to be non-empty outside development/testing.
+REQUIRED_IN_PRODUCTION = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL"]
