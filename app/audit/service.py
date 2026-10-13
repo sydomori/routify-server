@@ -20,14 +20,15 @@ _FORBIDDEN_KEY_PARTS = (
     "url", "content", "storage_key",
 )
 
-"""
- hashes identifiers ie phone numbers that dont match any account thus have no actor id
- raw phone number is PII thus can't be stored in audit log
- hash phone number with secret key so we have something to compare 
- use hmac to avoid rainbow table attacks
- secret key is never stored with the data unlike salting, so if the database is compromised, the attacker can't recompute the hashes without the secret key
-"""
+
 def hash_identifier(value:str)-> str:
+    """
+     hashes identifiers ie phone numbers that dont match any account thus have no actor id
+     raw phone number is PII thus can't be stored in audit log
+     hash phone number with secret key so we have something to compare 
+     use hmac to avoid rainbow table attacks
+     secret key is never stored with the data unlike salting, so if the database is compromised, the attacker can't recompute the hashes without the secret key
+    """
     #pick a secret from config to use as the HMAC key, falling back to the app's SECRET_KEY if AUDIT_HASH_KEY is not set
     key = (current_app.config.get("AUDIT_HASH_KEY") or current_app.config["SECRET_KEY"])
     if isinstance(key,str):
@@ -36,3 +37,27 @@ def hash_identifier(value:str)-> str:
     #strips whitespace around value & convert to bytes
     normalized = (value or "").strip().encode()
     return hmac.new(key,normalized,hashlib.sha256).hexdigest()[:32]
+
+def _sanitize(obj):
+    """
+        recursively redacts any keys in a dict that contain sensitive substrings, and returns a new object with the same structure but with sensitive values replaced by "[redacted]".  
+        protects against accidentally logging sensitive information in the audit log, which is a security requirement for the system.
+    """
+    if isinstance(obj,dict):
+        """
+         goes through each key, lowercases it & checks if it contains any of the forbidden substrings. 
+         If it does, the value is replaced with "[redacted]". 
+         Otherwise, the value is recursively sanitized. 
+        """
+        clean = {}
+        for k,v in obj.items():
+            if any(part in str(k).lower() for part in _FORBIDDEN_KEY_PARTS):
+                clean[k] = "[redacted]"
+            else:
+                clean[k] = _sanitize(v)
+        return clean
+
+    if isinstance(obj,(list,tuple)):
+        return [_sanitize(i) for i in obj]
+    
+    return obj
