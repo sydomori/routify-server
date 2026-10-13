@@ -41,3 +41,42 @@ def _deny(status, error, reason, actor_id=None, code=None, **extra_meta):
     if code:
         body["code"] = code
     return jsonify(body), status
+
+def role_required(*allowed_roles):
+    """
+    Decorator for routes that require the user to have one of the allowed roles.
+    Checks in the following order: valid JWT -> account exists -> account is active -> account has one of the allowed roles.
+    role is read from the token and they dont change at runtime, so no need to query the database for the role on every request.
+    """
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            verify_jwt_in_request()
+            actor_id = int(get_jwt_identity())
+ 
+            try:
+                user = _load_user()
+            except UserNotFoundError:
+                return jsonify({"error": "User not found"}), 404
+ 
+            if not user.is_active:
+                # 403 (not 401) so the frontend doesn't loop on token refresh
+                return _deny(
+                    403, "Account deactivated", "inactive_account",
+                    actor_id=actor_id, code="account_inactive"
+                )
+ 
+            role = get_jwt().get("role")
+            if role not in allowed_roles:
+                return _deny(
+                    403, "Forbidden: insufficient role",
+                    "insufficient_role", actor_id=actor_id,
+                    role=role, required=list(allowed_roles)
+                )
+ 
+            return fn(*args, **kwargs)
+ 
+        return wrapper
+ 
+    return decorator
