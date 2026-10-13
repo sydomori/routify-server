@@ -23,3 +23,21 @@ def _load_user():
         user = get_user_by_id(get_jwt_identity())
         g.current_user = user
     return user
+
+def _deny(status, error, reason, actor_id=None, code=None, **extra_meta):
+    """Audit a denied access attempt then build a response"""
+    record(
+        actor_id=actor_id,
+        action=actions.ACCESS_DENIED,
+        outcome=actions.OUTCOME_DENIED,
+        metadata={
+            "reason": reason,
+            "endpoint": request.endpoint,
+            "method": request.method,
+            **extra_meta,
+        },
+    )
+    body = {"error": error}
+    if code:
+        body["code"] = code
+    return jsonify(body), status
