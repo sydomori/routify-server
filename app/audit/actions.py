@@ -33,3 +33,18 @@ DOCUMENT_DOWNLOAD = "document.download"
 DOCUMENT_VERIFY = "document.verify"
 DOCUMENT_REJECT = "document.reject"
 DOCUMENT_DELETE = "document.delete"
+
+# --- communications ---
+ISSUE_REPORT = "issue.report"
+ISSUE_RESOLVE = "issue.resolve"
+
+OUTCOME_SUCCESS = "success"
+OUTCOME_DENIED = "denied"
+OUTCOME_FAILED = "failed"
+
+VALID_OUTCOMES = frozenset({OUTCOME_SUCCESS, OUTCOME_DENIED, OUTCOME_FAILED})
+ 
+VALID_ACTIONS = frozenset(
+    v for k, v in dict(globals()).items()
+    if k.isupper() and isinstance(v, str) and "." in v
+)
