@@ -80,3 +80,32 @@ def role_required(*allowed_roles):
         return wrapper
  
     return decorator
+
+def password_change_required(fn):
+    """
+     Hard gate for accounts still on temporary passwords
+     Re-reads must_change_password from the database on every request, so that if an admin forces a password change, 
+     the user is immediately blocked from all routes until they change their password.
+    """
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        actor_id = int(get_jwt_identity())
+ 
+        try:
+            user = _load_user()
+        except UserNotFoundError:
+            return jsonify({"error": "User not found"}), 404
+ 
+        if user.must_change_password:
+            return _deny(403, "Password change required",
+                         "password_change_required", actor_id=actor_id,
+                         code="password_change_required")
+        return fn(*args, **kwargs)
+ 
+    return wrapper
+ 
+ 
+manager_required = role_required("manager")
+driver_required = role_required("driver")
