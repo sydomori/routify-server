@@ -61,3 +61,15 @@ def _sanitize(obj):
         return [_sanitize(i) for i in obj]
     
     return obj
+
+def _validate(action, outcome):
+    """
+        validates that the action and outcome are in the set of valid actions and outcomes defined in actions.py. 
+        raises ValueError if either is invalid. 
+        This is a security requirement for the system to ensure that only known actions and outcomes are logged.
+    """
+    if action not in VALID_ACTIONS:
+        return f"unknown audit action: {action!r}"
+    if outcome not in VALID_OUTCOMES:
+        return f"invalid audit outcome: {outcome!r}"
+    return None
