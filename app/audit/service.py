@@ -115,3 +115,26 @@ def record(
             action, entity_type, entity_id, outcome, request_id,
         )
         return None
+
+def list_audit_logs(
+        actor_id=None, entity_type=None, action=None,
+        start_date=None, end_date=None, limit=50, offset=0
+    ):
+    """Newest first. limit is capped at 200."""
+    limit = max(1, min(int(limit), 200))
+    offset = max(0, int(offset))
+ 
+    q = AuditLog.query
+    if actor_id is not None:
+        q = q.filter(AuditLog.actor_id == actor_id)
+    if entity_type:
+        q = q.filter(AuditLog.entity_type == entity_type)
+    if action:
+        q = q.filter(AuditLog.action == action)
+    if start_date:
+        q = q.filter(AuditLog.created_at >= start_date)
+    if end_date:
+        q = q.filter(AuditLog.created_at <= end_date)
+ 
+    return (q.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+             .limit(limit).offset(offset).all())
