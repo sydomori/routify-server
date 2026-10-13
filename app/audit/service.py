@@ -73,3 +73,45 @@ def _validate(action, outcome):
     if outcome not in VALID_OUTCOMES:
         return f"invalid audit outcome: {outcome!r}"
     return None
+
+def record(
+    actor_id, action, entity_type=None, entity_id=None,
+    outcome="success", request_id=None, metadata=None):
+    """
+     appends one audit row AFTER the action it describes
+     writes on its own connection so it never rolls back the action it describes
+     returns AUditLog or None if the write was skipped or failed
+    """
+    problem = _validate(action, outcome)
+    if problem:
+        if current_app.config.get("AUDIT_STRICT", False): # True in Tests/dev
+            raise ValueError(problem)
+        current_app.logger.error("audit.record skipped: %s", problem)
+        return None
+
+    try:
+        if request_id is None and has_request_context():
+            request_id = getattr(g,"request_id", None)
+
+        row = AuditLog(
+            actor_id=actor_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            outcome=outcome,
+            request_id=request_id,
+            meta=_sanitize(metadata) if metadata else None,
+        )
+        with Session(db.engine, expire_on_commit=False) as session, session.begin():
+            """
+             use db.engine to get a new connection for this session, so it doesn't share the transaction with the caller.
+             expire_on_commit=False so the row object is still usable after the commit, allowing us to return it to the caller without needing to refresh it from the database.
+            """
+            session.add(row)
+        return row
+    except Exception:
+        current_app.logger.exception(
+            "audit write failed: action=%s entity=%s:%s outcome=%s request_id=%s",
+            action, entity_type, entity_id, outcome, request_id,
+        )
+        return None
