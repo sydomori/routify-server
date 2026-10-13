@@ -25,3 +25,11 @@ DRIVER_UNASSIGN = "driver.unassign"
 TRIP_START = "trip.start"
 TRIP_END = "trip.end"
 ORDER_ASSIGN = "order.assign"
+
+# --- documents ---
+DOCUMENT_UPLOAD = "document.upload"
+DOCUMENT_VIEW = "document.view"
+DOCUMENT_DOWNLOAD = "document.download"
+DOCUMENT_VERIFY = "document.verify"
+DOCUMENT_REJECT = "document.reject"
+DOCUMENT_DELETE = "document.delete"
