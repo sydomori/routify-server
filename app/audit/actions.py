@@ -20,3 +20,8 @@ TRUCK_UPDATE = "truck.update"
 TRUCK_DELETE = "truck.delete"
 DRIVER_ASSIGN = "driver.assign"
 DRIVER_UNASSIGN = "driver.unassign"
+
+# --- trips / orders ---
+TRIP_START = "trip.start"
+TRIP_END = "trip.end"
+ORDER_ASSIGN = "order.assign"
