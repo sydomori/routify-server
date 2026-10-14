@@ -166,3 +166,67 @@ class TestAuditNeverBreaksTheCaller:
         _skip_on_sqlite()  # SQLite doesn't enforce foreign keys by default
         assert record(999999, actions.LOGIN_FAILED) is None
         assert audit_rows() == []
+
+#---------------- edge cases ------------------------
+
+class TestRecordEdgeCases:
+    """
+     Boundary / edge: actor_id=None, optional entity fields, empty metadata,
+     limit below 1 and above 200, negative offset, and an empty table.
+    """
+    def test_actor_can_be_none_for_unknown_account(self):
+        row = record(None, actions.LOGIN_FAILED, outcome=actions.OUTCOME_DENIED,
+                     metadata={"identifier_hash": "abc"})
+        assert row.actor_id is None
+ 
+    def test_entity_fields_are_optional(self):
+        row = record(None, actions.ACCESS_DENIED, outcome=actions.OUTCOME_DENIED)
+        assert row.entity_type is None and row.entity_id is None
+ 
+    @pytest.mark.parametrize("meta", [None, {}])
+    def test_empty_metadata_is_stored_as_null(self, meta):
+        assert record(None, actions.LOGIN_FAILED, metadata=meta).meta is None
+ 
+    def test_limit_below_one_is_clamped_to_one(self, make_user):
+        for i in range(3):
+            record(make_user().id, actions.TRIP_START, "Trip", i)
+        assert len(list_audit_logs(limit=0)) == 1
+ 
+    def test_limit_is_capped_at_200(self):
+        db.session.add_all([AuditLog(action="trip.start", outcome="success")
+                            for _ in range(205)])
+        db.session.commit()
+        assert len(list_audit_logs(limit=10_000)) == 200
+ 
+    def test_negative_offset_is_treated_as_zero(self, make_user):
+        record(make_user().id, actions.TRIP_START, "Trip", 1)
+        assert len(list_audit_logs(offset=-5)) == 1
+ 
+    def test_empty_table_returns_empty_list(self):
+        assert list_audit_logs() == []
+
+#---------------- sad paths -----------------
+
+class TestValidation:
+    """
+     an unknown action or outcome raises in strict mode (tests/dev)
+     and is logged and skipped in non-strict mode (production)
+    """
+    @pytest.mark.parametrize("action,outcome", [
+        ("driver.teleport", "success"), ("", "success"),
+        ("trip.start", "maybe"), ("trip.start", ""),
+    ])
+    def test_strict_mode_raises(self, action, outcome):
+        with pytest.raises(ValueError):
+            record(None, action, outcome=outcome)
+ 
+    @pytest.mark.parametrize("action,outcome", [
+        ("driver.teleport", "success"), ("trip.start", "maybe"),
+    ])
+    def test_non_strict_logs_and_writes_nothing(
+            self, app, monkeypatch, caplog, audit_rows, action, outcome):
+        monkeypatch.setitem(app.config, "AUDIT_STRICT", False)
+        with caplog.at_level(logging.ERROR):
+            assert record(None, action, outcome=outcome) is None
+        assert "audit.record skipped" in caplog.text
+        assert audit_rows() == []
