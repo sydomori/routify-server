@@ -3,7 +3,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from marshmallow import ValidationError
 
 from app.auth import service
-from app.auth.decorators import password_change_required, role_required
+from app.decorators import password_change_required, role_required
 from app.auth.exceptions import (
     DuplicateUserError,
     InvalidDriverStatusError,
