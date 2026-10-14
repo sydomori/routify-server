@@ -45,7 +45,7 @@ def test_pagination(client, manager, auth_headers):
     assert page == full[2:4]
 
 
-#-------- high risk : access control ------------
+#-------------- access control ------------
 
 def test_no_token_is_401_and_not_audited(client, audit_rows):
     """
@@ -103,7 +103,7 @@ def test_sensitive_metadata_is_never_returned(client, manager, auth_headers):
     body = client.get("/api/audit/logs", headers=auth_headers(manager)).get_data(as_text=True)
     assert "hunter2" not in body and "[redacted]" in body
 
-#--------- boundary/edge & sad path ------
+#--------- boundary/edge & sad paths ------
 
 def test_empty_table_returns_empty_list(client, manager, auth_headers):
     """

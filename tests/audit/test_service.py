@@ -8,7 +8,7 @@ from app.audit.models import AuditLog
 from app.extensions import db
 from app.audit.service import hash_identifier, list_audit_logs, record
 
-def skip_on_sqlite():
+def _skip_on_sqlite():
     if db.engine.dialect.name == "sqlite":
         pytest.skip("needs a real Postgres test database")
 
@@ -84,3 +84,85 @@ class TestListHappyPath:
         self._seed(make_user().id, 5)
         full = [r.id for r in list_audit_logs()]
         assert [r.id for r in list_audit_logs(limit=2, offset=2)] == full[2:4]
+
+
+#--------- security/ data protection ---------
+
+class TestMetadataSanitising:
+    """
+     sensitive keys are redacted before
+     storage, including nested dicts and lists. Safe keys are preserved.
+    """
+    @pytest.mark.parametrize("key", [
+        "password", "temp_password", "access_token", "refresh_token",
+        "api_key", "Authorization", "file_url", "document_content",
+        "storage_key", "client_secret",
+    ])
+    def test_sensitive_keys_are_redacted(self, key):
+        row = record(None, actions.LOGIN_FAILED, metadata={key: "super-secret"})
+        stored = db.session.get(AuditLog, row.id)
+        assert stored.meta[key] == "[redacted]"
+        assert "super-secret" not in str(stored.meta)
+ 
+    def test_nested_dicts_and_lists_are_cleaned(self):
+        row = record(None, actions.LOGIN_FAILED, metadata={
+            "provider": {"api_key": "sk-1", "name": "africas_talking"},
+            "attempts": [{"token": "t-1"}, {"ok": True}],
+        })
+        meta = db.session.get(AuditLog, row.id).meta
+        assert meta["provider"] == {"api_key": "[redacted]", "name": "africas_talking"}
+        assert meta["attempts"] == [{"token": "[redacted]"}, {"ok": True}]
+
+#------------ sad paths ---------------------
+
+
+class TestAuditNeverBreaksTheCaller:
+
+    
+    def test_db_failure_returns_none_and_logs(self, app, monkeypatch, caplog):
+        """
+         a dropped DB connection makes record() return None and log the
+         error instead of raising into the caller.
+        """
+        def boom(*a, **k):
+            raise RuntimeError("db down")
+        monkeypatch.setattr("app.audit.service.Session", boom)
+        with caplog.at_level(logging.ERROR):
+            assert record(None, actions.LOGIN_FAILED) is None
+        assert "audit write failed" in caplog.text
+    
+    
+    def test_unserializable_metadata_is_swallowed(self, audit_rows):
+        """
+         metadata that can't be stored as JSON (e.g. a datetime) is
+         swallowed. The row is lost, so callers must pass JSON-safe values.
+        """
+        from datetime import datetime
+        assert record(None, actions.LOGIN_FAILED,
+                      metadata={"when": datetime.utcnow()}) is None
+        assert audit_rows() == []
+ 
+    
+    def test_audit_row_survives_callers_rollback(self, audit_rows):
+        """
+         record() uses its own session, so the audit
+         row survives when the caller's transaction is rolled back. Postgres only.
+        """
+        _skip_on_sqlite()
+        # A pending, uncommitted change in the caller's own session...
+        db.session.add(AuditLog(action="trip.start", outcome="success"))
+        db.session.flush()
+        record(None, actions.ACCESS_DENIED, outcome=actions.OUTCOME_DENIED)
+        db.session.rollback()  # ...is rolled back; the audit row must remain.
+        assert len(audit_rows(action="access.denied")) == 1
+        assert audit_rows(action="trip.start") == []
+ 
+    
+    def test_unknown_actor_fk_is_swallowed(self, audit_rows):
+        """
+         a non-existent actor_id breaks the foreign key; record() swallows
+         it and writes nothing. Postgres only (SQLite doesn't enforce FKs).
+        """
+        _skip_on_sqlite()  # SQLite doesn't enforce foreign keys by default
+        assert record(999999, actions.LOGIN_FAILED) is None
+        assert audit_rows() == []
