@@ -69,9 +69,9 @@ def _configure_logging(app):
     passwords, JWTs, API keys, or document content must never be passed into
     any log call anywhere in the app, in any module."""
  
-    handler = logging.StreamHandler()
+    handler = logging.StreamHandler() #handle logs to stdout/stderr data stream
     formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(levelname)s %(name)s %(message)s %(request_id)s"
+        "%(asctime)s %(levelname)s %(name)s %(message)s %(request_id)s" #choose what fields we want to log using the formatter
     )
     handler.setFormatter(formatter)
  
@@ -145,7 +145,7 @@ def _register_blueprints(app):
     """
     from app.audit.routes import audit_bp
     app.register_blueprint(audit_bp,url_prefix="/api/audit")
-    
+
     from app.auth.routes import auth_bp
     app.register_blueprint(auth_bp,url_prefix="/api/auth")
 

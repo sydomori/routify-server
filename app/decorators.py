@@ -1,31 +1,36 @@
 """
-Shared route guards
-moved up from app/auth/decorators.py to avoid circular imports with app/__init__.py
+Shared route guards. Lives at app/decorators.py.
+moved from auth/decorators.py to app to avoid circular imports (depends on auth.service)
 """
-
 from functools import wraps
-
-from flask import g, jsonify, request
-from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, get_jwt
-
+ 
+from flask import jsonify, request
+from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
+ 
 from app.audit import actions
 from app.audit.service import record
 from app.auth.exceptions import UserNotFoundError
 from app.auth.service import get_user_by_id
-
+ 
+ 
 def _load_user():
     """
-    loads the current user once per request, and caches it in g.current_user for the rest of the request.
-    avoids a second query when role_required and password_change_required are both used on the same route.
+    Load the current user once per request and reuse it (avoids a second
+    query when role_required and password_change_required are stacked).
+ 
+    Cached on request.environ, which is unique to each request. Do NOT cache on
+    flask.g: when an app context is already pushed (as in the test fixtures), g
+    is shared across requests and a stale user would leak between them.
     """
-    user = getattr(g, "current_user", None)
-    if user is None:
-        user = get_user_by_id(get_jwt_identity())
-        g.current_user = user
-    return user
-
+    cached = request.environ.get("routify.current_user")
+    if cached is None:
+        cached = get_user_by_id(int(get_jwt_identity()))
+        request.environ["routify.current_user"] = cached
+    return cached
+ 
+ 
 def _deny(status, error, reason, actor_id=None, code=None, **extra_meta):
-    """Audit a denied access attempt then build a response"""
+    """Audit a denied access attempt (NFR-SEC-14), then build the response."""
     record(
         actor_id=actor_id,
         action=actions.ACCESS_DENIED,
@@ -41,14 +46,16 @@ def _deny(status, error, reason, actor_id=None, code=None, **extra_meta):
     if code:
         body["code"] = code
     return jsonify(body), status
-
+ 
+ 
 def role_required(*allowed_roles):
+    """Checks, in order: valid JWT -> account exists -> account is active
+    (NFR-SEC-03, one DB read per request) -> role claim in allowed_roles.
+ 
+    Role is read from the token (roles don't change at runtime). is_active is
+    NOT, because deactivation must take effect before the token expires.
     """
-    Decorator for routes that require the user to have one of the allowed roles.
-    Checks in the following order: valid JWT -> account exists -> account is active -> account has one of the allowed roles.
-    role is read from the token and they dont change at runtime, so no need to query the database for the role on every request.
-    """
-
+ 
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -62,32 +69,30 @@ def role_required(*allowed_roles):
  
             if not user.is_active:
                 # 403 (not 401) so the frontend doesn't loop on token refresh
-                return _deny(
-                    403, "Account deactivated", "inactive_account",
-                    actor_id=actor_id, code="account_inactive"
-                )
+                return _deny(403, "Account deactivated", "inactive_account",
+                             actor_id=actor_id, code="account_inactive")
  
             role = get_jwt().get("role")
             if role not in allowed_roles:
-                return _deny(
-                    403, "Forbidden: insufficient role",
-                    "insufficient_role", actor_id=actor_id,
-                    role=role, required=list(allowed_roles)
-                )
+                return _deny(403, "Forbidden: insufficient role",
+                             "insufficient_role", actor_id=actor_id,
+                             role=role, required=list(allowed_roles))
  
             return fn(*args, **kwargs)
  
         return wrapper
  
     return decorator
-
+ 
+ 
 def password_change_required(fn):
     """
-     Hard gate for accounts still on temporary passwords
-     Re-reads must_change_password from the database on every request, so that if an admin forces a password change, 
-     the user is immediately blocked from all routes until they change their password.
+    Hard gate for accounts still on a temporary password.
+ 
+    Re-reads must_change_password from the DB instead of trusting the JWT, since
+    the token would stay stale after the flag flips to false.
     """
-
+ 
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
@@ -109,3 +114,4 @@ def password_change_required(fn):
  
 manager_required = role_required("manager")
 driver_required = role_required("driver")
+ 
