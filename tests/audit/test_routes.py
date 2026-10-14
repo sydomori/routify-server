@@ -102,3 +102,30 @@ def test_sensitive_metadata_is_never_returned(client, manager, auth_headers):
     record(manager.id, actions.LOGIN_FAILED, metadata={"password": "hunter2"})
     body = client.get("/api/audit/logs", headers=auth_headers(manager)).get_data(as_text=True)
     assert "hunter2" not in body and "[redacted]" in body
+
+#--------- boundary/edge & sad path ------
+
+def test_empty_table_returns_empty_list(client, manager, auth_headers):
+    """
+     with no audit rows at all, the endpoint still answers 200
+     but with an empty list rather than an error or a null body
+    """
+    resp = client.get("/api/audit/logs", headers=auth_headers(manager))
+    assert resp.status_code == 200 and resp.get_json() == []
+
+@pytest.mark.parametrize("query", [
+    "limit=0", "limit=201", "limit=abc", "offset=-1",
+    "start=not-a-date", "end=nope", "actor_id=abc",
+])
+def test_invalid_query_params_return_400(client, manager, auth_headers, query):
+    resp = client.get(f"/api/audit/logs?{query}", headers=auth_headers(manager))
+    assert resp.status_code == 400
+    assert "errors" in resp.get_json()
+
+def test_user_lookup_is_not_cached_across_requests(client, make_user, manager, auth_headers):
+    # Regression: the per-request user cache must never leak into the next
+    # request (flask.g is shared between requests when an app context is pushed).
+    assert client.get("/api/audit/logs", headers=auth_headers(manager)).status_code == 200
+    inactive = make_user("manager", is_active=False)
+    resp = client.get("/api/audit/logs", headers=auth_headers(inactive))
+    assert resp.status_code == 403
