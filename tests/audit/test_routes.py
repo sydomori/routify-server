@@ -36,3 +36,10 @@ def test_filters(client, make_user, manager, auth_headers):
     assert len(get("start=2000-01-01T00:00:00")) == 3
     assert get("start=2999-01-01T00:00:00") == []
     assert get("end=2000-01-01T00:00:00") == []
+
+def test_pagination(client, manager, auth_headers):
+    seed(manager.id, 5)
+    h = auth_headers(manager)
+    full = [r["id"] for r in client.get("/api/audit/logs?limit=200", headers=h).get_json()]
+    page = [r["id"] for r in client.get("/api/audit/logs?limit=2&offset=2", headers=h).get_json()]
+    assert page == full[2:4]
