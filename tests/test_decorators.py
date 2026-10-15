@@ -98,3 +98,50 @@ def test_temp_password_account_is_gated(app, make_user, auth_headers, audit_rows
     assert resp.get_json()["code"] == "password_change_required"
     (row,) = audit_rows(action="access.denied")
     assert row.meta["reason"] == "password_change_required"
+
+
+def test_missing_token_raises_and_is_not_audited(app, audit_rows):
+    """
+     Sad path: a missing token is rejected, and anonymous traffic is never
+     audited (prevents audit-table flooding).
+    """
+    with pytest.raises(NoAuthorizationError):
+        call(app, manager_required(view))
+    assert audit_rows() == []  # anonymous traffic must not fill the audit table
+
+def test_valid_token_for_missing_user_returns_404_unaudited(app, audit_rows):
+    """
+     Sad path: a valid token for a user that no longer exists returns 404.
+     This branch is deliberately not audited
+    """
+    token = create_access_token(identity="999999", additional_claims={"role": "manager"})
+    _, status = call(app, manager_required(view), {"Authorization": f"Bearer {token}"})
+    assert status == 404
+    assert audit_rows() == []
+
+def test_stacked_guards_load_the_user_once(app, make_user, auth_headers, monkeypatch):
+    """
+     Boundary / edge: stacking role_required and password_change_required
+     costs a single user lookup per request.
+    """
+    import app.decorators as decorators
+    real, calls = decorators.get_user_by_id, {"n": 0}
+ 
+    def counting(uid):
+        calls["n"] += 1
+        return real(uid)
+ 
+    monkeypatch.setattr(decorators, "get_user_by_id", counting)
+    stacked = role_required("manager")(password_change_required(view))
+    assert call(app, stacked, auth_headers(make_user("manager"))) == "ok"
+    assert calls["n"] == 1
+
+def test_audit_failure_does_not_change_the_denial(app, make_user, auth_headers, monkeypatch):
+    """
+     Sad path: if the audit write fails, the user still gets the 403.
+    """
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr("app.audit.service.Session", boom)
+    _, status = call(app, manager_required(view), auth_headers(make_user("driver")))
+    assert status == 403
