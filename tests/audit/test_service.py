@@ -230,3 +230,42 @@ class TestValidation:
             assert record(None, action, outcome=outcome) is None
         assert "audit.record skipped" in caplog.text
         assert audit_rows() == []
+
+#----------- hash identifier ----------------
+class TestHashIdentifier:
+    """ 
+     Happy path: the same input always gives the same 32-char hash, and the
+     raw value never appears in it.
+    """
+    def test_deterministic_fixed_length_and_hides_input(self):
+        h = hash_identifier("0712345678")
+        assert h == hash_identifier("0712345678")
+        assert len(h) == 32 and "0712345678" not in h
+ 
+    # Happy path: different accounts get different hashes.
+    def test_different_inputs_differ(self):
+        assert hash_identifier("0712345678") != hash_identifier("0712345679")
+ 
+    # Boundary / edge: stray whitespace must not create a second identity.
+    # (Phone-format normalisation, e.g. +254... vs 07..., is the caller's job.)
+    def test_surrounding_whitespace_is_ignored(self):
+        assert hash_identifier(" 0712345678 ") == hash_identifier("0712345678")
+ 
+    # High-risk / security: the hash depends on a secret key, so it can't be
+    # recomputed by someone who only has the data.
+    def test_changing_the_key_changes_the_hash(self, app, monkeypatch):
+        monkeypatch.setitem(app.config, "AUDIT_HASH_KEY", "key-one")
+        h1 = hash_identifier("0712345678")
+        monkeypatch.setitem(app.config, "AUDIT_HASH_KEY", "key-two")
+        assert hash_identifier("0712345678") != h1
+ 
+    # Boundary / edge: with no AUDIT_HASH_KEY set, SECRET_KEY is used.
+    def test_falls_back_to_secret_key(self, app, monkeypatch):
+        monkeypatch.setitem(app.config, "AUDIT_HASH_KEY", None)
+        monkeypatch.setitem(app.config, "SECRET_KEY", "fallback-secret")
+        assert len(hash_identifier("0712345678")) == 32
+ 
+    # Boundary / edge: empty or None input still returns a hash, no exception.
+    @pytest.mark.parametrize("value", ["", None])
+    def test_empty_values_do_not_crash(self, value):
+        assert len(hash_identifier(value)) == 32
