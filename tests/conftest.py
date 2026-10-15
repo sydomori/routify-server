@@ -5,6 +5,7 @@ from app import create_app
 from app.extensions import db as _db
 from app.auth.models import User
 from app.auth.utils import hash_password
+from app.audit.models import AuditLog
 
 
 """
@@ -85,3 +86,11 @@ minimal stand in tables for testing
 
 if "trips" not in _db.metadata.tables:
     _db.Table("trips", _db.metadata, _db.Column("id", _db.Integer, primary_key=True))
+
+@pytest.fixture
+def audit_rows(db):
+    def _rows(**filters):
+        db.session.expire_all()
+        return AuditLog.query.filter_by(**filters).order_by(AuditLog.id).all()
+
+    return _rows
