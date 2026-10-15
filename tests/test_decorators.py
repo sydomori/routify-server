@@ -46,3 +46,55 @@ def test_password_gate_passes_when_flag_is_false(app, make_user, auth_headers):
     """
     user = make_user("driver", must_change_password=False)
     assert call(app, password_change_required(view), auth_headers(user)) == "ok"
+
+
+def test_wrong_role_is_denied_and_audited(app, make_user, auth_headers, audit_rows):
+    """
+     High-risk / security: a wrong-role request is denied (403) and recorded as
+     access.denied with the actor, role and required roles
+    """
+    driver = make_user("driver")
+    resp, status = call(app, manager_required(view), auth_headers(driver))
+    assert status == 403
+    (row,) = audit_rows(action="access.denied")
+    assert row.outcome == "denied" and row.actor_id == driver.id
+    assert row.meta["reason"] == "insufficient_role"
+    assert row.meta["role"] == "driver" and row.meta["required"] == ["manager"]
+
+def test_inactive_account_is_denied_even_with_valid_token(app, make_user, auth_headers, audit_rows):
+    """
+     High-risk / security: an inactive account is denied even with a valid
+     token, and the denial is audited
+    """
+    manager = make_user("manager", is_active=False)
+    resp, status = call(app, manager_required(view), auth_headers(manager))
+    assert status == 403
+    assert resp.get_json()["code"] == "account_inactive"
+    (row,) = audit_rows(action="access.denied")
+    assert row.meta["reason"] == "inactive_account" and row.actor_id == manager.id
+
+def test_deactivation_takes_effect_on_the_next_request(app, make_user, auth_headers):
+    """
+     High-risk / security: the same token works, then stops working on the very
+     next request after deactivation
+    """
+    from app.extensions import db
+    manager = make_user("manager")
+    headers = auth_headers(manager)  # same token reused
+    assert call(app, manager_required(view), headers) == "ok"
+    manager.is_active = False
+    db.session.commit()
+    _, status = call(app, manager_required(view), headers)
+    assert status == 403
+
+def test_temp_password_account_is_gated(app, make_user, auth_headers, audit_rows):
+    """
+     High-risk / security: an account on a temporary password is blocked with
+     code=password_change_required, and the denial is audited
+    """
+    user = make_user("driver", must_change_password=True)
+    resp, status = call(app, password_change_required(view), auth_headers(user))
+    assert status == 403
+    assert resp.get_json()["code"] == "password_change_required"
+    (row,) = audit_rows(action="access.denied")
+    assert row.meta["reason"] == "password_change_required"
