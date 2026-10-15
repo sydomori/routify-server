@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
 
-from app.auth.decorators import role_required, password_change_required
+from app.decorators import role_required, password_change_required
 from app.auth.exceptions import NotADriverError, UserNotFoundError
 from app.trucks import service
 from app.trucks.exceptions import TruckError

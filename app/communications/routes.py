@@ -4,7 +4,7 @@ from app.communications import service
 from marshmallow import ValidationError
 from app.auth.service import get_manager_phone
 
-from app.auth.decorators import role_required
+from app.decorators import role_required
 from app.communications.schemas import(
     issue_create_schema,
     issue_schema,
