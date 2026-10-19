@@ -17,6 +17,13 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    #Keyed-hash secret for phone numbers/emails in audit rows and Redis keys
+    #if unset the audit module falls back to SECRET_KEY
+    AUDIT_HASH_KEY = os.environ.get("AUDIT_HASH_KEY")
+
+    #production default is an invalid action is logged, never raises
+    AUDIT_STRICT = False
+
     #third party integrations read from env, not hardcoded in config.py
 
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
@@ -47,12 +54,15 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or (f"sqlite:///{os.path.join(basedir, 'dev.db')}")
+    AUDIT_STRICT = True
 
 class TestingConfig(Config):
     TESTING = True
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
+    AUDIT_STRICT = True
+    AUDIT_HASH_KEY = "test-hash-key-at-least-32-characters-long"
 
 class ProductionConfig(Config):
     DEBUG = False
