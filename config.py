@@ -66,7 +66,6 @@ class TestingConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    AUDIT_STRICT = True
 
     # fail-fast validation intentionally does NOT live here anymore.
     # app.config.from_object() is passed this class directly, never an
