@@ -62,6 +62,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     AUDIT_STRICT = True
+    AUDIT_HASH_KEY = "test-hash-key-at-least-32-characters-long"
 
 class ProductionConfig(Config):
     DEBUG = False
