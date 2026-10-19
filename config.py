@@ -17,6 +17,13 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    #Keyed-hash secret for phone numbers/emails in audit rows and Redis keys
+    #if unset the audit module falls back to SECRET_KEY
+    AUDIT_HASH_KEY = os.environ.get("AUDIT_HASH_KEY")
+    
+    #production default is an invalid action is logged, never raises
+    AUDIT_STRICT = False
+
     #third party integrations read from env, not hardcoded in config.py
 
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
