@@ -20,7 +20,7 @@ class Config:
     #Keyed-hash secret for phone numbers/emails in audit rows and Redis keys
     #if unset the audit module falls back to SECRET_KEY
     AUDIT_HASH_KEY = os.environ.get("AUDIT_HASH_KEY")
-    
+
     #production default is an invalid action is logged, never raises
     AUDIT_STRICT = False
 
@@ -54,16 +54,19 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or (f"sqlite:///{os.path.join(basedir, 'dev.db')}")
+    AUDIT_STRICT = True
 
 class TestingConfig(Config):
     TESTING = True
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
+    AUDIT_STRICT = True
 
 class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    AUDIT_STRICT = True
 
     # fail-fast validation intentionally does NOT live here anymore.
     # app.config.from_object() is passed this class directly, never an
