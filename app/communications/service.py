@@ -22,13 +22,18 @@ def send_onboarding_sms(
     phone:str,
     temp_password:str
 ) -> None:
-    """called by auth.service.onboard_driver()"""
+    """called by auth.service.onboard_driver(). True if the provider accepted the message"""
     message=f"Welcome to Routify. Your temp password is: {temp_password}"
     try:
         send_sms(phone, message)
-        _log_notification(phone, "sms", message, "sent")
+        sent = True 
     except Exception:
-        _log_notification(phone, "sms", message, "failed")
+        sent = False
+
+    #Security : Never log the real text: it contains the temp password
+    _log_notification(phone, "sms", "Onboarding SMS" , "sent" if sent else "failed")
+
+    return sent
 
 def send_manager_invite_email(
     user,
