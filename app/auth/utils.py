@@ -52,6 +52,18 @@ def verify_password(
     except ValueError:
         return False
 
+def burn_password_check(plain_password: str) -> None:
+    """
+     Spend the same time a bcrypt check would, so a login from an unknown
+     or deactivated account isn't faster than one for a real account 
+    """
+    global _dummy_hash
+    if _dummy_hash is None:
+        _dummy_hash = hash_password("timing-equalizer-not-a-real-password")
+    verify_password(plain_password, _dummy_hash)
+
+
+
 def generate_temp_password(
     length:int = 8
 ) -> str:
