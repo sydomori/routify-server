@@ -70,6 +70,9 @@ class TestingConfig(Config):
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     AUDIT_STRICT = True
     AUDIT_HASH_KEY = "test-hash-key-at-least-32-characters-long"
+    LOCKOUT_BACKEND = "memory" #Tests never need a running Redis
+    RATELIMIT_ENABLED = False #a default limit doesn't cause a surprise 429in a test
+    BCRYPT_ROUNDS = 4 # bcrypt's minimum: keeps the suite fast 
 
 class ProductionConfig(Config):
     DEBUG = False
@@ -88,4 +91,4 @@ config_by_name = {
 }
 
 # Vars validate_config() requires to be non-empty outside development/testing.
-REQUIRED_IN_PRODUCTION = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL"]
+REQUIRED_IN_PRODUCTION = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL", "REDIS_URL"]
