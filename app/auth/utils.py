@@ -104,3 +104,15 @@ def normalize_phone(
 
 def normalize_email(raw_email:str) -> str:
     return (raw_email or "").strip().lower()
+
+def normalize_identifier(raw_identifier: str) -> str:
+    """Login identifier -> canonical form: an email (lowercased) if it has an '@', else an
+    E.164 phone. Junk that is neither still gets a stable lowercase form, so it can be hashed,
+    counted by the lockout and rejected like any other wrong credential."""
+    value = (raw_identifier or "").strip()
+    if "@" in value:
+        return normalize_email(value)
+    try:
+        return normalize_phone(value)
+    except ValueError:
+        return value.lower()
