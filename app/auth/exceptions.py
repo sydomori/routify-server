@@ -1,19 +1,31 @@
-"""create custom exception errors for auth module"""
-
 class AuthError(Exception):
-    """base class for authentication errors"""
+    """Base class for all auth-module errors."""
+
 
 class UserNotFoundError(AuthError):
-    """raised when a user is not found in the database"""
+    pass
+
 
 class DuplicateUserError(AuthError):
-    """raised when a user with the same email or phone already exists in the database"""
+    """Raised when phone or email already exists."""
+
 
 class InvalidDriverStatusError(AuthError):
-    """raised when a driver has an invalid status for the requested operation"""
+    """Raised when set_driver_status() is called with a value outside DRIVER_STATUSES."""
+
 
 class NotADriverError(AuthError):
-    """raised when a user is not a driver but attempts to perform driver-specific actions"""
+    """Raised when a driver-only operation (status get/set, deactivate) targets a manager."""
+
 
 class NoManagerFoundError(AuthError):
     """Raised by get_manager_phone() when zero managers exist to notify."""
+
+
+class WeakPasswordError(AuthError, ValueError):
+    """New password fails the policy (NFR-SEC-16). Also a ValueError so the invite/bootstrap
+    routes' existing `except ValueError` handlers turn it into a 400."""
+
+
+class WrongCurrentPasswordError(AuthError):
+    """A voluntary password change was attempted without the correct current password."""
