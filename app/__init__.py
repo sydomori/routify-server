@@ -7,6 +7,14 @@ from pythonjsonlogger import jsonlogger
 
 from config import config_by_name, REQUIRED_IN_PRODUCTION
 from app.extensions import db, migrate, jwt, cors, mail, limiter
+import re
+from sqlalchemy import text
+
+"""
+Only accept a client-supplied X-Request-ID if it is short and boring; anything
+else is replaced, so a client can't inject arbitrary text into logs/audit rows.
+"""
+_REQUEST_ID_RE = re.compile(r"[A-Za-z0-9-]{1,64}")
 
 
 def create_app(config_name=None):
@@ -29,7 +37,9 @@ def create_app(config_name=None):
         """health check endpoint to verify the app is running"""
         db_status = "ok"
         try:
-            db.session.execute("SELECT 1")
+            #SQLAlchemy 1.4 + requires textual SQL queries to be explicitly declared as text objects (text())
+            #db.session.execute("SELECT 1") would not work
+            db.session.execute(text("SELECT 1"))
         except Exception:
             """Dont leak raw exception, might contain connection string or other sensitive info. Log it instead."""
             app.logger.exception("Health check db connectivity failure")
@@ -99,8 +109,8 @@ def _register_request_id(app):
  
     @app.before_request
     def set_request_id():
-        g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
- 
+     incoming = request.headers.get("X-Request-ID","")
+     g.request_id = incoming if _REQUEST_ID_RE.fullmatch(incoming) else str(uuid.uuid4()) 
     @app.after_request
     def add_request_id_header(response):
         response.headers["X-Request-ID"] = g.get("request_id", "-")
