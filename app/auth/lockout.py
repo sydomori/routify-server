@@ -148,3 +148,14 @@ def _log_unavailable(exc):
         "lockout_store_unavailable: login lockout is NOT being enforced (error_type=%s)",
         type(exc).__name__,
     )
+
+# ----------- Configuration Helpers ------------
+"""
+ Read settings dynamically from Flask's configuration, defaulting to 5 attempts and 900 seconds (15 minutes) if unspecified.
+"""
+
+def max_attempts():
+    return current_app.config.get("LOCKOUT_MAX_ATTEMPTS", 5)
+
+def window_seconds():
+    return current_app.config.get("LOCKOUT_WINDOW_SECONDS", 900)
