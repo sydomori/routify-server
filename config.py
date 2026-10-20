@@ -6,8 +6,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
     """base configuration class with shared default settings for all environments"""
 
-    SECRET_KEY = os.environ.get('SECRET_KEY',"dev-secret-change-me")
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY',"dev-jwt-secret-change-me")
+    SECRET_KEY = os.environ.get('SECRET_KEY',"dev-secret-change-me-not-for-production-use")
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY',"dev-jwt-secret-change-me-not-for-production-use")
 
     #NFR-SEC-02: access token expires after 15 minutes. Paired with refresh token for long-lived sessions.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
