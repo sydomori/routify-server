@@ -34,7 +34,10 @@ def hash_password(
     plain_password:str
 ) -> str:
     """hash a pain text password using bcrypt and return a utf-8 encoded string for storage"""
-    hashed = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt())
+
+    # make passwords more secure by increasing the computational time the server uses to hash the password
+    rounds = current_app.config.get("BCRYPT_ROUNDS", 12) if has_app_context() else 12
+    hashed = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt(rounds=rounds))
     return hashed.decode("utf-8")
 
 def verify_password(
