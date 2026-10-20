@@ -1,15 +1,33 @@
 import re
 import secrets
 import string
+from datetime import datetime, timezone
 
 import bcrypt
+from flask import current_app, has_app_context
+
+from app.auth.exceptions import WeakPasswordError
+
+MIN_PASSWORD_LENGTH = 12   # NFR-SEC-16, for passwords a user chooses
+TEMP_PASSWORD_LENGTH = 8   # generated, expiring, retyped from an SMS, so shorter is fine
 
 #exclude characters that are easily confused with each other
 _TEMP_PASSWORD_ALPHABET = "".join(
     c for c in (string.ascii_letters + string.digits) if c not in "0O1lI"
 )
 
-_PHONE_RE = re.compile(r"^\+?[1-9]\d{7,14}$")
+# make sure the phone number is in E.164 format. +254 and 07 numbers are the same
+_E164_RE = re.compile(r"^\+[1-9]\d{7,14}$")
+_DIGITS_RE = re.compile(r"^\+?\d+$")
+
+_dummy_hash = None
+
+def utcnow() -> datetime:
+    """
+    Return a naive datetime in UTC
+    Every timestamp column is naive thus cant mix aware and naive datetimes
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def hash_password(
