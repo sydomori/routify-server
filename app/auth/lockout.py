@@ -162,6 +162,8 @@ def window_seconds():
 
 #------------ Public API functions ----------------
 
+"""Functions called by the primary auth views"""
+
 def seconds_until_unlocked(h):
     """
      Used at the beginning of a login endpoint.
