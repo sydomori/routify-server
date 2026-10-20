@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 STORE_KEY = "routify_lockout"
 
 
-# ----------------- In memory storage engine --------------
+# ----------------- In Memory Storage Engine --------------
 class MemoryLockoutStore:
     """
      Is the in memory storage engine
@@ -74,7 +74,7 @@ class MemoryLockoutStore:
         """Deletes failure history of an identifier"""
         self._failures.pop(h, None)
 
-#------------ Redis production storage engine ------------
+#------------ Redis Production Storage Engine ------------
 class RedisLockoutStore:
     """
      High performance redis production class
@@ -110,3 +110,41 @@ class RedisLockoutStore:
 
     def clear(self, h):
         self.client.delete(f"login:fails:{h}")
+
+
+# --------------- Store Initialization & Resilience Management ------------
+
+def get_store():
+    """
+     Implements a single factory pattern
+     Checks if a store engine instance already exists in Flask's global extensions
+     context dict and returns it immediately to avoid recreating connections
+    """
+    extensions = current_app.extensions
+    store = extensions.get(STORE_KEY)
+    if store is not None:
+        return store
+
+    try:
+        if current_app.config.get("LOCKOUT_BACKEND", "memory") == "redis":
+            import redis
+            client = redis.Redis.from_url(
+                current_app.config["REDIS_URL"],
+                socket_connect_timeout=0.5, #Dos protection constraint. If the Redis server is unreachable for more than 0.5 seconds, the lockout is disabled
+                socket_timeout=0.5,
+                decode_responses=True,
+            )
+            store = RedisLockoutStore(client)
+        else:
+            store = MemoryLockoutStore()
+    except Exception as exc:
+        _log_unavailable(exc)
+        return None
+    extensions[STORE_KEY] = store
+    return store
+
+def _log_unavailable(exc):
+    logger.error(
+        "lockout_store_unavailable: login lockout is NOT being enforced (error_type=%s)",
+        type(exc).__name__,
+    )
