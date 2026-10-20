@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 STORE_KEY = "routify_lockout"
 
 
-
+# ----------------- In memory storage engine --------------
 class MemoryLockoutStore:
     """
      Is the in memory storage engine
@@ -73,3 +73,40 @@ class MemoryLockoutStore:
     def clear(self, h):
         """Deletes failure history of an identifier"""
         self._failures.pop(h, None)
+
+#------------ Redis production storage engine ------------
+class RedisLockoutStore:
+    """
+     High performance redis production class
+     Relies on Redis data structures to track time windows instead of
+     writing to a persistent disk database
+    """
+
+    def __init__(self, client): #accepts a pre configured active Redis client connection instance
+        self.client=client
+
+    def retry_after(self, h):
+        """
+        Checks if an account is locked out by querying the Time-To-Live
+        (TTL) of the lock key in Redis
+        If Redis returns a positive TTL, that is the number of seconds left
+        If the key does not exist, it returns O (not locked)    
+        """
+        ttl = self.client.ttl(f"login:lock:{h}")
+        return int(ttl) if ttl and ttl > 0 else 0
+
+    def add_failure(self,h,window):
+        key = f"login:fails:{h}"
+        now = time.time()
+        pipe = self.client.pipeline() #Initialize redis pipeline. Redis commands are batched and sent to the server at once
+        pipe.zadd(key, {f"{now}: {uuid.uuid4().hex[:8]}": now}) # Adds the failure to a Redis Sorted Set (ZADD). Combines current timestamp & random string fragment ensuring uniqueness
+        pipe.zremrangebyscore(key, 0, now - window) #Delete older entries with timestamp older than the rolling 15 min window
+        pipe.zcard(key) #counts how many failure elements are in the sorted set
+        pipe.expire(key, window) #Sets the expiration time for the sorted set
+        return int(pipe.execute()[2]) #Executes all four commands at once. [2] extracts the output of the 3rd command (zcard), returning the exact failure count.
+
+    def lock(self, h, seconds):
+        self.client.set(f"login:lock:{h}", "1", ex=seconds)
+
+    def clear(self, h):
+        self.client.delete(f"login:fails:{h}")
