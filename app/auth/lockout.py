@@ -159,3 +159,45 @@ def max_attempts():
 
 def window_seconds():
     return current_app.config.get("LOCKOUT_WINDOW_SECONDS", 900)
+
+#------------ Public API functions ----------------
+
+def seconds_until_unlocked(h):
+    """
+     Used at the beginning of a login endpoint.
+     If it returns a num higher than 0, the view immediately blocks the request
+     before running any expensive password hashing process
+    """
+    try:
+        store = get_store()
+        return store.retry_after(h) if store else 0 #Fail-Open pattern: If the store fails, it returns 0, bypassing the restriction so legitimate traffic isn't blocked
+    except Exception as exc:
+        _log_unavailable(exc)
+        return 0
+
+def register_failure(h):
+    """called when a user provides an incorrect password"""
+    try:
+        store = get_store()
+        if store is None:
+            return 0, False
+        count = store.add_failure(h, window_seconds()) #logs failure and checks the volume within the active timeframe window
+        if count >= max_attempts():
+            #if count > 5, trigger store.lock() for 15 mins and return True to signal fresh lock initialization
+            store.lock(h, window_seconds())
+            return count, True
+        return count, False
+    except Exception as exc:
+        _log_unavailable(exc)
+        return 0, False
+
+def clear_failures(h):
+    """
+     Called immediately after a successful login to reset the rolling window counter to 0
+    """
+    try:
+        store = get_store()
+        if store:
+            store.clear(h)
+    except Exception as exc:
+        _log_unavailable(exc)
