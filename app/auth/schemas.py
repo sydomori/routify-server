@@ -1,5 +1,6 @@
 from marshmallow import Schema, fields, validate
 from app.auth.models import User
+from app.auth.utils import MIN_PASSWORD_LENGTH
 
 class UserPublicSchema(Schema):
     """
@@ -40,10 +41,17 @@ class AcceptInviteSchema(Schema):
 
 class LoginSchema(Schema):
     identifier = fields.Str(required=True) # phone for drivers, email for managers
-    password = fields.Str(required=True)
+    password = fields.Str(required=True ,load_only=True)
 
 class ChangePasswordSchema(Schema):
-    new_password = fields.Str(required=True, load_only=True, validate = validate.Length(min=8))
+    """
+     password length validation is done in service.py so a rejected or weak password can be audited
+    """
+    new_password = fields.Str(required=True, load_only=True)
+
+    #Required for voluntary change, ignored for forced change
+    current_password = fields.Str(load_only=True)
+
 
 user_public_schema = UserPublicSchema()
 onboard_driver_schema = OnboardDriverSchema()
