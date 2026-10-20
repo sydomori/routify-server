@@ -51,6 +51,13 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_DEFAULT = "200 per day;50 per hour"
 
+    #------- Login lockout -------
+    # "redis via WSL, production" or "memory" (tests, or dev without Redis running)
+    LOCKOUT_BACKEND = os.environ.get("LOCKOUT_BACKEND", "redis")
+    REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    LOCKOUT_MAX_ATTEMPTS = 5
+    LOCKOUT_WINDOW_SECONDS = 15 * 60
+
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or (f"sqlite:///{os.path.join(basedir, 'dev.db')}")
