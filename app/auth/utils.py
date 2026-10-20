@@ -80,8 +80,27 @@ def generate_temp_password(
 def normalize_phone(
     raw_phone:str
 ) -> str:
-    """Normalize phone number to E.164 format (e.g., +1234567890)"""
+    """
+     Normalize a phone number to E.164 format, Kenya as the default country
+     Everything that identifies a phone (stored value, login lookup, lockout
+    key) goes through this making sure 0711 and 254711 are the same number
+    """
     cleaned = re.sub(r"[\s\-()]", "", raw_phone or "")
-    if not _PHONE_RE.match(cleaned):
-        raise ValueError(f"Invalid phone number format: {raw_phone}")
-    return cleaned
+    if not _DIGITS_RE.match(cleaned):
+        raise ValueError(f"{raw_phone} is not a valid phone number")
+
+    if cleaned.startswith("+"):
+        candidate = cleaned
+    elif cleaned.startswith("00"):
+        candidate = "+" + cleaned[2:]
+    elif cleaned.startswith("0") and len(cleaned) == 10:
+        candidate = "+254" + cleaned[1:]
+    elif len(cleaned) == 9 and cleaned[0] in "17":
+        candidate = "+254" + cleaned
+    else:
+        candidate = "+" + cleaned
+
+    if not _E164_RE.match(candidate):
+        raise ValueError(f"{raw_phone} is not a valid phone number")
+
+    return candidate
