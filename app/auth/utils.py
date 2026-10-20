@@ -66,9 +66,6 @@ def validate_password_policy(password:str) -> None:
     """Validate password length and complexity. Raise WeakPasswordError if invalid."""
     if not isinstance(password,str) or len(password) < MIN_PASSWORD_LENGTH:
         raise WeakPasswordError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
-    
-
-
 
 
 def generate_temp_password(
@@ -104,3 +101,6 @@ def normalize_phone(
         raise ValueError(f"{raw_phone} is not a valid phone number")
 
     return candidate
+
+def normalize_email(raw_email:str) -> str:
+    return (raw_email or "").strip().lower()
