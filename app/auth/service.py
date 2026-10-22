@@ -45,7 +45,7 @@ class LoginResult:
     retry_after : int = 0
     reason : str | None = None
 
-# --------- Account creation ---------------
+# --------- Account creation --------------------
 
 def onboard_driver(
     name: str,
@@ -202,3 +202,74 @@ def accept_invite(token:str, new_password:str) -> User:
 
     record(user.id, actions.PASSWORD_CHANGE, "User", user.id, metadata={"forced": True, "via": "invite"})
     return user
+
+
+#------------ Login ------------------------
+
+def authenticate_user(identifier:str, password: str) -> User | None:
+    """
+     Plain credential check: User or None
+     lockout and audit live in attempt_login() which login route uses
+    """
+
+    normalized = normalize_identifier(identifier)
+    if not normalized or not password:
+        return None
+
+    user = _find_user(normalized)
+    return user if _credential_failure_reason(user, password) is None else None
+
+
+def attempt_login(identifier: str, password: str) -> LoginResult:
+    """
+     FULL LOGIN FLOW 
+     1. a locked identifier is refused before any DB lockup or bcrypt work.
+     2. credentials are checked : unknown/ inactive/ wrong password/ expired temp password
+     3. failures are counted and the 5th inside the window locks the identifier for 15 mins
+     4. every outcome is audited with the real reason. Caller shows generic 401
+    """
+
+    normalized = normalize_identifier(identifier)
+    if not normalized or not password:
+        return LoginResult(reason="missing_credentials")
+
+    h = hash_identifier(normalized)
+
+    remaining = lockout.seconds_until_unlocked(h)
+    if remaining:
+        """ 
+         Not audited. Counter absorbs these and doesn't set one row per attempt
+         Prevents an attacker from flooding audit_logs
+        """
+        return LoginResult(locked=True, retry_after=remaining)
+
+    user = _find_user(normalized)
+    reason = _credential_failure_reason(user, password)
+
+    if reason is None:
+        lockout.clear_failures(h)
+        record(user.id, actions.LOGIN_SUCCESS,"User", user.id)
+        return LoginResult(user=user)
+
+    actor_id = user.id if user else None
+    entity_type = "User" if user else None
+
+    _, newly_locked = lockout.register_failure(h)
+    if newly_locked:
+        record(
+           actor_id, actions.LOGIN_LOCKOUT, entity_type, actor_id,
+            outcome=actions.OUTCOME_DENIED,
+            metadata={
+                "identifier_hash": h,
+                "window_seconds": lockout.window_seconds(),
+                "max_attempts": lockout.max_attempts(),
+            }, 
+        )
+    else:
+        record(
+            actor_id, actions.LOGIN_FAILED, entity_type, actor_id,
+            outcome=actions.OUTCOME_DENIED,
+            metadata={"identifier_hash": h, "reason": reason},
+        )
+
+    return LoginResult(reason=reason)
