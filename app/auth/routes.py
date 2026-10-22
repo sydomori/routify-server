@@ -152,6 +152,18 @@ def login_route():
         }
     ), 200
 
+@auth_bp.post("/refresh")
+@active_user_required(refresh=True)
+def refresh_route():
+    """
+     Trades a refresh token for a new access token to keep a user logged in
+     without forcing them to re-enter the credentials (tokens expire after 15 mins for security)
+    """
+    user = service.get_user_by_id(int(get_jwt_identity()))
+    return jsonify(
+        {"access_token": create_access_token(identity=str(user.id),additional_claims={"role":user.role})}
+    ), 200
+
 @auth_bp.post("/change-password")
 @jwt_required()
 def change_password_route():
