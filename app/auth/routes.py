@@ -165,7 +165,7 @@ def refresh_route():
     ), 200
 
 @auth_bp.post("/change-password")
-@jwt_required()
+@active_user_required()
 def change_password_route():
     try:
         data = change_password_schema.load(request.get_json(silent=True) or {})
@@ -174,11 +174,15 @@ def change_password_route():
 
     user_id = int(get_jwt_identity())
     try:
-        service.change_password(user_id, data["new_password"])
+        service.change_password(user_id, data["new_password"], current_password=data.get("current_password"))
+    except WeakPasswordError as err:
+        return jsonify({"error":str(err), "code":"weak_password"}), 400
+    except WrongCurrentPasswordError as err:
+        return jsonify({"error":str(err), "code":"wrong_current_password"}), 403
     except UserNotFoundError as err:
-        return jsonify({"error": str(err)}), 404
+        return jsonify({"error":str(err)}), 404
 
-    return jsonify({"message": "Password changed successfully"}), 200
+    return jsonify({"message":"Password changed successfully"}), 200
 
 @auth_bp.patch("/drivers/<int:driver_id>/deactivate")
 @role_required("manager")
