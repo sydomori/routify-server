@@ -123,14 +123,30 @@ def login_route():
     except ValidationError as err:
         return jsonify({"error":"Invalid input", "details": err.messages}), 400
 
-    user = service.authenticate_user(data["identifier"], data["password"])
-    if user is None:
-        return jsonify({"error":"Invalid credentials"}), 401
+    result = service.attempt_login(data['identifier'], data['password'])
 
-    access_token = create_access_token(identity=str(user.id))
+    if result.locked:
+        response = jsonify(
+            {"error":"Too many failed attempts. Try again later","code":"account_locked"}
+        )
+
+        response.status_code = 429
+        response.headers["Retry-After"] = str(result.retry_after)
+        return response
+
+    if result.user is None:
+        """
+         One generic answer for unknown account, bad password, deactivated account
+         expired temp password
+         Audit row keeps the real reason
+        """
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    user = result.user
     return jsonify(
         {
-            "access_token": access_token,
+           "access_token": create_access_token(identity=str(user.id), additional_claims={"role": user.role}),
+            "refresh_token": create_refresh_token(identity=str(user.id)),
             "must_change_password": user.must_change_password,
             "user": user_public_schema.dump(user),
         }
