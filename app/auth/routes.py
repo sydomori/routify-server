@@ -221,8 +221,14 @@ def reset_driver_password_route(driver_id:int):
 
 
 @auth_bp.get("/me")
-@jwt_required()
+@active_user_required()
 def me_route():
+    """
+     Used by the frontend to identify the current user and check must_change_password/driver_status
+     before deciding what to render
+     Deliberately NOT behind @password_change_required — the frontend needs this to work
+     precisely while a driver is stuck on the forced-password-change screen
+    """
     user_id = int(get_jwt_identity())
     try:
         user = service.get_user_by_id(user_id)
