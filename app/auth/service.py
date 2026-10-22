@@ -273,3 +273,73 @@ def attempt_login(identifier: str, password: str) -> LoginResult:
         )
 
     return LoginResult(reason=reason)
+
+# ------------------- Passwords ------------------------
+
+def change_password(user_id: int, new_password: str, current_password: str | None = None) -> None:
+    """
+     Sets the new password and must_change_password=False.
+     A voluntary change(must_change_password already false) needs the correct current password
+     The forced first change after a temp password does not (the user has
+     just logged in with it).
+     New password must be at least 12 characters
+     When it was a forced change of a temp password, temp_password_used_at is stamped
+    """
+
+    user = get_user_by_id(user_id)
+    forced = user.must_change_password
+
+    if not forced and not (current_password and verify_password(current_password, user.password_hash)):
+        record(
+            user.id, actions.PASSWORD_CHANGE, "User", user.id,
+            outcome=actions.OUTCOME_DENIED, metadata={"reason": "wrong_current_password"}
+        )
+        raise WrongCurrentPasswordError("Current password is incorrect")
+
+    try:
+        validate_password_policy(new_password)
+    except WeakPasswordError:
+        record(
+           user.id, actions.PASSWORD_CHANGE, "User", user.id,
+            outcome=actions.OUTCOME_DENIED, metadata={"reason": "weak_password"} 
+        )
+        raise
+
+    user.password_hash = hash_password(new_password)
+    user.must_change_password = False
+    if forced and user.temp_password_expires_at is not None:
+        user.temp_password_used_at = utcnow()
+
+    db.session.commit()
+
+    record(
+        user.id, actions.PASSWORD_CHANGE,"User",user.id, metadata={"forced": forced}
+    )
+
+def reset_driver_password(driver_id:int, requesting_user:User) -> User:
+    """
+     Manager issues a driver a fresh temp password(valid for 72 hrs)
+     for a driver whose first one was expire or lost.
+     The new password goes out by SMS alone
+    """
+    if requesting_user.role != "manager":
+        raise PermissionError("Only a manager can reset a driver's password")
+
+    driver = _get_driver_or_raise(driver_id)
+    if not driver.is_active:
+        raise ValueError("Cannot reset the password for a deactivated driver")
+
+    temp_password = generate_temp_password()
+    driver.password_hash = hash_password(temp_password)
+    driver.must_change_password = True
+    driver.temp_password_expires_at = utcnow() + TEMP_PASSWORD_LIFETIME
+    driver.temp_password_used_at = None
+    db.session.commit()
+
+    sms_sent = _send_password_reset_sms(driver.phone, temp_password)
+
+    record(
+        requesting_user.id, actions.DRIVER_PASSWORD_RESET, "User", driver.id,
+        metadata={"sms_sent": sms_sent}
+    )
+    return driver
