@@ -401,3 +401,100 @@ def get_manager_phone(truck_id:int | None=None, driver_id: int | None=None) -> s
     if manager is None:
         raise NoManagerFoundError("No manager exists to notify")
     return manager.phone
+
+
+# -------------- Internals --------------------------------
+
+def _find_user(normalized_identifier: str) -> User | None:
+    return User.query.filter(
+        (User.phone == normalized_identifier) | (User.email == normalized_identifier)
+    ).first()
+
+def _credential_failure_reason(user:User | None, password:str) -> str | None:
+    if user is None:
+        burn_password_check(password)
+        return "unknown_account"
+    if not user.is_active:
+        burn_password_check(password)
+        return "inactive_account"
+    if not verify_password(password, user.password_hash):
+        return "bad_password"
+    if _temp_password_expired(user):
+        # Only reached with the RIGHT password, so this never tells a stranger anything.
+        return "temp_password_expired"
+    return None
+
+def _temp_password_expired(user: User) -> bool:
+    return (
+        user.must_change_password
+        and user.temp_password_expires_at is not None
+        and user.temp_password_expires_at < utcnow()
+    )
+
+def _get_driver_or_raise(driver_id:int) -> User:
+    driver = get_user_by_id(driver_id)
+    if driver.role != "driver":
+        raise NotADriverError(f"User {driver_id} is a '{driver.role}', not a driver")
+
+def _ensure_unique_contact(phone:str, email:str | None=None) -> None:
+    """
+     Shared duplicate check used by onboard_driver / bootstrap_first_manager /
+     invite_manager. Raises DuplicateUserError naming whichever field collided first.
+    """
+    if User.query.filer_by(phone=phone).first() is not None:
+        raise DuplicateUserError(f"A user with phone '{phone}' already exists")
+
+    if email is not None and User.query.filter_by(email=normalize_email(email)).first() is not None:
+        raise DuplicateUserError(f"A user with email '{email}' already exists")
+    
+def _generate_invite_token(user_id: int) -> str:
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    return serializer.dumps({"user_id": user_id}, salt=_INVITE_TOKEN_SALT)
+
+def _verify_invite_token(token:str) -> int:
+    """
+     Verify, decode and extracts user.id from a time limited invite token
+    """
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    try:
+        payload = serializer.loads(
+            token, salt=_INVITE_TOKEN_SALT, max_age=_INVITE_TOKEN_MAX_AGE_SECONDS
+        )
+    except BadData:
+        raise ValueError("Invalid or expired invite token")
+    return payload["user_id"]
+
+def _deliver(function_name:str, recipient:str, *args) -> bool:
+    """
+     Calls a communications.service function as a soft dependency: account creation
+     doesn't fail because message couldn't go through
+     Returns True if it appears to be sent
+     Communications functions swallow provider errors themselves and return True/False
+     Logs carry a hashed recipient and the exception TYPE only, never the message, phone, email, password or link.
+    """
+    try:
+        #use dynamic importing ie "importlib"
+        service = importlib.import_module("app.communications.service")
+        result = getattr(service, function_name) (*args)
+    except ImportError:
+        logger.warning(
+            "communications_unavailable: %s not sent (recipient_hash=%s)",
+            function_name, hash_identifier(recipient)
+        )
+        return False
+    except Exception as exc:
+        logger.error(
+           "communications_send_failed: %s (recipient_hash=%s, error_type=%s)",
+           function_name, hash_identifier(recipient), type(exc).__name__
+        )
+        return False
+    return result is not False
+
+def _send_onboarding_sms(phone:str, temp_password: str) -> bool:
+    return _deliver("send_onboarding_sms", phone, phone, temp_password)
+
+def _send_password_reset_sms(phone:str, temp_password:str) -> bool:
+    return _deliver("send_password_reset_sms", phone, phone, temp_password)
+
+def _send_manager_invite_email(user: User, invite_link: str) -> bool:
+    return _deliver("send_manager_invite_email", user.email, user, invite_link)
