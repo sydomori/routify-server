@@ -8,7 +8,7 @@ from itsdangerous import URLSafeTimedSerializer, BadData
 
 from app.audit import actions
 from app.audit.service import hash_identifier, record
-from app.audit import lockout
+from app.auth import lockout
 from app.auth.exceptions import (
     DuplicateUserError,
     InvalidDriverStatusError,
