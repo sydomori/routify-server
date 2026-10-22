@@ -1,14 +1,15 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity
 from marshmallow import ValidationError
 
 from app.auth import service
-from app.decorators import password_change_required, role_required
+from app.decorators import active_user_required, password_change_required, role_required
 from app.auth.exceptions import (
     DuplicateUserError,
-    InvalidDriverStatusError,
     NotADriverError,
-    UserNotFoundError
+    UserNotFoundError,
+    WeakPasswordError,
+    WrongCurrentPasswordError
 )
 
 from app.auth.schemas import (
@@ -33,11 +34,13 @@ def onboard_driver_route():
         return jsonify({"error": "Invalid input", "details": err.messages}), 400
 
     try:
-        driver = service.onboard_driver(name=data["name"], phone=data["phone"])
+        driver = service.onboard_driver(
+            name=data["name"], phone=data["phone"], actor_id=int(get_jwt_identity)
+        )
     except DuplicateUserError as err:
         return jsonify({"error": str(err)}), 409
     except ValueError as err:
-        # normalize phone can raise ValueError if the phone number is invalid
+        # normalize phone can raise ValueError if the phone number is malformed
         return jsonify({"error": str(err)}), 400
 
     return jsonify(user_public_schema.dump(driver)), 201
