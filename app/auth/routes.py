@@ -197,6 +197,28 @@ def deactivate_driver_route(driver_id:int):
 
     return jsonify({"message": f"Driver {driver_id} deactivated"}), 200
 
+@auth_bp.post("/drivers/<int:driver_id>/reset-password")
+@role_required("manager")
+@password_change_required
+def reset_driver_password_route(driver_id:int):
+    """
+    Issue a driver a new password by SMS if the last one was lost/expired
+    New password is never returned in the response
+    """
+    try:
+        requesting_user = service.get_user_by_id(int(get_jwt_identity()))
+        service.reset_driver_password(driver_id, requesting_user)
+    except UserNotFoundError as err:
+        return jsonify({"error": str(err)}), 404
+    except NotADriverError as err:
+        return jsonify({"error": str(err)}), 404
+    except PermissionError as err:
+        return jsonify({"error": str(err)}), 403
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+    return jsonify({"message":f"A new temporary password was issued to driver {driver_id}"}), 200
+
 
 @auth_bp.get("/me")
 @jwt_required()
