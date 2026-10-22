@@ -189,7 +189,7 @@ def change_password_route():
 @password_change_required
 def deactivate_driver_route(driver_id:int):
     try:
-        service.deactivate_driver(driver_id)
+        service.deactivate_driver(driver_id, actor_id=int(get_jwt_identity()))
     except UserNotFoundError as err:
         return jsonify({"error":str(err)}),404
     except NotADriverError as err:
