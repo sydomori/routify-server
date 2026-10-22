@@ -343,3 +343,61 @@ def reset_driver_password(driver_id:int, requesting_user:User) -> User:
         metadata={"sms_sent": sms_sent}
     )
     return driver
+
+# ------------ Lookups for other modules -------------------
+
+def get_driver_status(driver_id:int) -> str:
+    """
+     Called by trips.service and trucks.service as a guard check before assigning a truck or
+     starting a trip
+    """
+    driver = _get_driver_or_raise(driver_id)
+    return driver.driver_status
+
+def is_driver_active(driver_id:int) -> bool:
+    """
+     Returns false for a deactivated driver.
+     Kept separate from get_driver_status so the functions meaning doesnt change under
+     trucks/trips (document verification)
+    """
+    return _get_driver_or_raise(driver_id).is_active
+
+def set_driver_status(driver_id:int, status:str) -> None:
+    """Called by documents.service when a review outcome changes"""
+    if status not in DRIVER_STATUSES:
+        raise InvalidDriverStatusError(
+            f"'{status}' is not a valid driver_status (expected one of {DRIVER_STATUSES})"
+        )
+
+    driver = _get_driver_or_raise(driver_id)
+    driver.driver_status = status
+    db.session.commit()
+
+def deactivate_driver(driver_id:int, actor_id:int | None=None):
+    driver = _get_driver_or_raise(driver_id)
+    driver.is_active = False
+    db.session.commit()
+    record(actor_id, actions.DRIVER_DEACTIVATE, "User", driver.id)
+
+def get_user_by_id(user_id:int) -> User:
+    user = db.session.get(User, user_id)
+    if user is None:
+        raise UserNotFoundError(f"No user with id {user_id}")
+    return user
+
+def get_manager_phone(truck_id:int | None=None, driver_id: int | None=None) -> str:
+    """
+     Resolves the phone number to notify for a given truck/driver context. Called by
+     trips.service (truck_id), documents.service (driver_id), and communications' own
+     create_issue route (truck_id).
+
+     MVP: truck_id and driver_id are accepted now, purely so every call site is already
+     written against the final signature, but both are IGNORED — this returns the phone
+     of the earliest-created manager (lowest id), the deterministic stand-in now that
+     multiple managers can exist, until truck/driver -> manager assignment exists.
+    """
+
+    manager = User.query.filter_by(role="manager").order_by(User.id.asc()).first()
+    if manager is None:
+        raise NoManagerFoundError("No manager exists to notify")
+    return manager.phone
