@@ -41,3 +41,10 @@ def login (client, identifier,password):
         json={"identifier": identifier, "password": password},
     )
 
+def bearer(token):
+    """
+     Creates a http header used for authentication
+     Takes a token string and formats it into a standard dictionary format
+    """
+    return {"Authorization": f"Bearer {token}"}
+
