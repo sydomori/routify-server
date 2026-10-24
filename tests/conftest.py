@@ -100,3 +100,5 @@ def audit_rows(db):
 def refresh_headers(app):
     def _refresh_headers(user):
         return {"Authorization": f"Bearer {create_refresh_token(identity=str(user.id))}"}
+
+    return _refresh_headers
