@@ -5,15 +5,27 @@ import json
 
 class FakeClock:
     """
-     Controllable stand in for time.time()
-     15 minute lockout can now be tested instantly
+     Controllable stand in for time.time() - real system clock
+     Allows us to manipulate time so that a 15 minute lockout can now be tested instantly
     """
 
+    #sets up clock with starting timestamp
     def __init__(self, now=1_000_000.0):
         self.now = now
 
+    #turns the class instance into a callable function
+    #returns the current timestamp
     def __call__(self):
         return self.now
 
+    #lets us advance the clock forward by a number of seconds
     def advance(self, seconds):
         self.now += seconds
+
+def meta_text(row):
+    """
+     Converts an audit rows metadata as one string
+     For 'this secret never appears' assertions
+    """
+    return json.dumps(row.meta or {})
+
