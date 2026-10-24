@@ -29,3 +29,15 @@ def meta_text(row):
     """
     return json.dumps(row.meta or {})
 
+def login (client, identifier,password):
+    """
+     Helper to make a login request
+     Takes a test client object, hits and endpoint, packages 
+     the identifier and password into a json payload
+     Returns the response with the status code
+    """
+    return client.post(
+        "/api/auth/login",
+        json={"identifier": identifier, "password": password},
+    )
+
