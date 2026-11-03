@@ -103,3 +103,28 @@ class TestMe:
 
     def test_a_token_is_required(self, client):
         assert client.get("/api/auth/me").status_code == 401
+
+class TestChangePassword:
+    def test_a_forced_change_works_with_no_current_password(self, client, make_user, auth_headers):
+        driver = make_user(role="driver", password="TempPass1", must_change_password=True)
+        response = client.post(
+            "/api/auth/change-password", json={"new_password": "BrandNewPassword1"}, headers=auth_headers(driver)
+        )
+        assert response.status_code == 200
+        assert login(client, driver.phone, "BrandNewPassword1").status_code == 200
+
+    def test_a_voluntary_change_without_the_current_password_is_403_with_a_code(self, client, driver, auth_headers):
+        response = client.post(
+            "/api/auth/change-password", json={"new_password": "BrandNewPassword1"}, headers=auth_headers(driver)
+        )
+        assert response.status_code == 403
+        assert response.get_json()["code"] == "wrong_current_password"
+
+    def test_a_weak_password_is_400_with_a_code(self, client, make_user, auth_headers):
+        driver = make_user(role="driver", must_change_password=True)
+        response = client.post("/api/auth/change-password", json={"new_password": "short"}, headers=auth_headers(driver))
+        assert response.status_code == 400
+        assert response.get_json()["code"] == "weak_password"
+
+    def test_a_token_is_required(self, client):
+        assert client.post("/api/auth/change-password", json={"new_password": "BrandNewPassword1"}).status_code == 401
