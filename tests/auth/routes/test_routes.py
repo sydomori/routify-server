@@ -242,3 +242,26 @@ class TestBootstrapManager:
     def test_a_short_password_or_missing_fields_are_400(self, client):
         assert client.post("/api/auth/bootstrap-manager", json={**self.BODY, "password": "Elevenchars"}).status_code == 400
         assert client.post("/api/auth/bootstrap-manager", json={"name": "Incomplete"}).status_code == 400
+
+
+class TestAcceptInvite:
+    def token_for_new_invite(self, manager):
+        from app.auth import service
+        invitee = service.invite_manager("Second", "+254700000002", "second@routify.test", manager)
+        return service._generate_invite_token(invitee.id)
+
+    def test_a_valid_invite_sets_the_password_and_does_not_log_the_user_in(self, client, manager):
+        token = self.token_for_new_invite(manager)
+        response = client.post("/api/auth/accept-invite", json={"token": token, "new_password": "NewManagerPass1"})
+        assert response.status_code == 200
+        assert "access_token" not in response.get_json()
+        assert login(client, "second@routify.test", "NewManagerPass1").status_code == 200
+
+    @pytest.mark.parametrize("token,password", [
+        ("garbage", "NewManagerPass1"),
+        ("USE_REAL_TOKEN", "Elevenchars"),
+    ], ids=["bad-token", "weak-password"])
+    def test_a_bad_token_or_weak_password_is_400(self, client, manager, token, password):
+        if token == "USE_REAL_TOKEN":
+            token = self.token_for_new_invite(manager)
+        assert client.post("/api/auth/accept-invite", json={"token": token, "new_password": password}).status_code == 400
