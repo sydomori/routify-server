@@ -26,3 +26,16 @@ class TestPasswordHashing:
     @pytest.mark.parametrize("bad_hash", ["", "not-a-bcrypt-hash", None])
     def test_a_malformed_stored_hash_is_a_failed_check_not_a_crash(self, bad_hash):
         assert verify_password("anything", bad_hash) is False
+
+class TestPasswordPolicy:
+    """
+     NRF-SEC-12: at least 12 characters
+    """
+
+    def test_exactly_twelve_is_accepted(self):
+        validate_password_policy("a" * 12)
+
+    @pytest.mark.parametrize("weak", ["a" * 11, "", None])
+    def test_shorter_or_missing_is_rejected(self, weak):
+        with pytest.raises(WeakPasswordError):
+            validate_password_policy(weak)
