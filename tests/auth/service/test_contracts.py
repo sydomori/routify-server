@@ -60,3 +60,18 @@ class TestDeactivation:
     def test_only_drivers_can_be_deactivated(self, manager):
         with pytest.raises(NotADriverError):
             service.deactivate_driver(manager.id)
+
+class TestGetManagerPhone:
+    def test_no_manager_raises_instead_of_returning_a_blank_number(self):
+        with pytest.raises(NoManagerFoundError):
+            service.get_manager_phone()
+
+    def test_drivers_are_never_returned(self, driver):
+        with pytest.raises(NoManagerFoundError):
+            service.get_manager_phone()
+
+    def test_with_several_managers_the_earliest_created_is_used_and_arguments_are_ignored(self, make_user):
+        first = make_user(role="manager")
+        make_user(role="manager")
+        assert service.get_manager_phone() == first.phone
+        assert service.get_manager_phone(truck_id=999, driver_id=999) == first.phone
