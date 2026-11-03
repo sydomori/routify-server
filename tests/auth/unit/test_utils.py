@@ -47,3 +47,23 @@ class TestTempPasswords:
     def test_never_uses_characters_that_are_hard_to_read_off_an_sms(self):
         sample = "".join(generate_temp_password(length=64) for _ in range(20))
         assert not (set(sample) & set("0O1lI"))
+
+class TestPhoneNormalization:
+    """Every way of writing a Kenyan number must become ONE identity. The lockout counter
+    and the duplicate check both depend on it."""
+
+    @pytest.mark.parametrize(
+        "raw",
+        ["+254711111111", "254711111111", "0711111111", "711111111",
+         "00254711111111", "+254 711 111 111", "0711-111-111", "(0711) 111 111"],
+    )
+    def test_all_spellings_become_one_canonical_number(self, raw):
+        assert normalize_phone(raw) == "+254711111111"
+
+    def test_other_countries_keep_their_own_code(self):
+        assert normalize_phone("+14155552671") == "+14155552671"
+
+    @pytest.mark.parametrize("invalid", ["not-a-phone", "12345", "", "+0123456789", "+254abc", None])
+    def test_junk_is_rejected(self, invalid):
+        with pytest.raises(ValueError):
+            normalize_phone(invalid)
