@@ -93,3 +93,13 @@ class TestRefresh:
 
     def test_a_token_is_required(self, client):
         assert client.post("/api/auth/refresh").status_code == 401
+
+class TestMe:
+    def test_returns_the_current_user_without_secrets(self, client, manager, auth_headers):
+        body = client.get("/api/auth/me", headers=auth_headers(manager)).get_json()
+        assert body["id"] == manager.id
+        assert "password_hash" not in body
+        assert not any(key.startswith("temp_password") for key in body)
+
+    def test_a_token_is_required(self, client):
+        assert client.get("/api/auth/me").status_code == 401
