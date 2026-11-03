@@ -67,3 +67,16 @@ class TestPhoneNormalization:
     def test_junk_is_rejected(self, invalid):
         with pytest.raises(ValueError):
             normalize_phone(invalid)
+
+class TestIdentifierNormalization:
+    def test_emails_are_trimmed_and_lowercased(self):
+        assert normalize_email("  Jane@Routify.TEST ") == "jane@routify.test"
+        assert normalize_identifier("Jane@Routify.test") == "jane@routify.test"
+
+    def test_phone_spellings_converge(self):
+        assert normalize_identifier("0711111111") == normalize_identifier("+254 711 111 111")
+
+    def test_junk_gets_a_stable_form_instead_of_raising(self):
+        # so it can still be hashed and counted by the lockout like any wrong credential
+        assert normalize_identifier("  Some Junk ") == "some junk"
+        assert normalize_identifier(None) == ""
