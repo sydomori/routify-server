@@ -18,7 +18,7 @@ def comms(monkeypatch):
      comms.sent(name)                  -> list of argument tuples it was called with
    """ 
 
-   fake = types.ModulesTypes("app.communications.service")
+   fake = types.ModuleType("app.communications.service")
    fake.calls = []
    fake.results = {}
 
