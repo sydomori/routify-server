@@ -34,7 +34,8 @@ def comms(monkeypatch):
    for fn_name in ("send_onboarding_sms", "send_passwords_reset_sms", "send_manager_invite_email"):
        setattr(fake, fn_name, make(fn_name))
 
-   fake.sent = lambda name: [args for args in fake.calls if args[0] == name]
+   fake.sent = lambda name: [args for n, args in fake.calls if n == name]
+
    monkeypatch.setitem(sys.modules, "app.communications.service", fake)
    return fake
 

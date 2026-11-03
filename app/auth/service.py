@@ -441,7 +441,7 @@ def _ensure_unique_contact(phone:str, email:str | None=None) -> None:
      Shared duplicate check used by onboard_driver / bootstrap_first_manager /
      invite_manager. Raises DuplicateUserError naming whichever field collided first.
     """
-    if User.query.filer_by(phone=phone).first() is not None:
+    if User.query.filter_by(phone=phone).first() is not None:
         raise DuplicateUserError(f"A user with phone '{phone}' already exists")
 
     if email is not None and User.query.filter_by(email=normalize_email(email)).first() is not None:
