@@ -78,3 +78,18 @@ class TestLogin:
 
     def test_missing_fields_are_a_400(self, client):
         assert client.post("/api/auth/login", json={"identifier": "x"}).status_code == 400
+
+class TestRefresh:
+    def test_a_refresh_token_returns_an_access_token_that_works(self, client, manager, refresh_headers):
+        response = client.post("/api/auth/refresh", headers=refresh_headers(manager))
+        assert response.status_code == 200
+        token = response.get_json()["access_token"]
+        me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert me.get_json()["id"] == manager.id
+
+    def test_the_two_token_types_are_not_interchangeable(self, client, manager, auth_headers, refresh_headers):
+        assert client.post("/api/auth/refresh", headers=auth_headers(manager)).status_code == 422
+        assert client.get("/api/auth/me", headers=refresh_headers(manager)).status_code == 422
+
+    def test_a_token_is_required(self, client):
+        assert client.post("/api/auth/refresh").status_code == 401
