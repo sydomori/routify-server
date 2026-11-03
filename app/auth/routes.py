@@ -211,7 +211,7 @@ def reset_driver_password_route(driver_id:int):
     except UserNotFoundError as err:
         return jsonify({"error": str(err)}), 404
     except NotADriverError as err:
-        return jsonify({"error": str(err)}), 404
+        return jsonify({"error": str(err)}), 400
     except PermissionError as err:
         return jsonify({"error": str(err)}), 403
     except ValueError as err:

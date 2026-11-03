@@ -198,3 +198,29 @@ class TestDeactivateDriver:
         assert client.patch("/api/auth/drivers/99999/deactivate", headers=auth_headers(manager)).status_code == 404
         other = make_user(role="manager")
         assert client.patch(f"/api/auth/drivers/{other.id}/deactivate", headers=auth_headers(manager)).status_code == 400
+
+class TestResetDriverPassword:
+    def test_a_manager_resets_and_the_new_password_is_not_in_the_response(
+        self, client, manager, driver, auth_headers, comms
+    ):
+        response = client.post(f"/api/auth/drivers/{driver.id}/reset-password", headers=auth_headers(manager))
+        assert response.status_code == 200
+        [(_, new_temp)] = comms.sent("send_password_reset_sms")
+        assert new_temp not in response.get_data(as_text=True)
+
+    def test_a_driver_is_forbidden_and_no_token_is_401(self, client, driver, auth_headers):
+        url = f"/api/auth/drivers/{driver.id}/reset-password"
+        assert client.post(url, headers=auth_headers(driver)).status_code == 403
+        assert client.post(url).status_code == 401
+
+    def test_unknown_is_404_a_manager_target_is_400_a_deactivated_driver_is_400(
+        self, client, manager, driver, make_user, auth_headers
+    ):
+        headers = auth_headers(manager)
+        assert client.post("/api/auth/drivers/99999/reset-password", headers=headers).status_code == 404
+        other = make_user(role="manager")
+        assert client.post(f"/api/auth/drivers/{other.id}/reset-password", headers=headers).status_code == 400
+        driver.is_active = False
+        from app.extensions import db
+        db.session.commit()
+        assert client.post(f"/api/auth/drivers/{driver.id}/reset-password", headers=headers).status_code == 400
