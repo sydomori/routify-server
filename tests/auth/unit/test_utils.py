@@ -80,3 +80,7 @@ class TestIdentifierNormalization:
         # so it can still be hashed and counted by the lockout like any wrong credential
         assert normalize_identifier("  Some Junk ") == "some junk"
         assert normalize_identifier(None) == ""
+
+def test_utcnow_is_naive():
+    """Every timestamp column is naive UTC, so comparisons never mix aware and naive values."""
+    assert utcnow().tzinfo is None
