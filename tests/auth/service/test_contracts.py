@@ -75,3 +75,33 @@ class TestGetManagerPhone:
         make_user(role="manager")
         assert service.get_manager_phone() == first.phone
         assert service.get_manager_phone(truck_id=999, driver_id=999) == first.phone
+
+def test_get_user_by_id_reports_a_missing_user(driver):
+    assert service.get_user_by_id(driver.id).id == driver.id
+    with pytest.raises(UserNotFoundError):
+        service.get_user_by_id(99999)
+
+class TestCommunicationsSoftDependency:
+    """auth must never fail because a message could not be sent, and must never leak the
+    message, the recipient or the password into its logs while saying so."""
+
+    def test_a_function_that_returns_nothing_counts_as_sent(self, comms):
+        comms.results["send_onboarding_sms"] = None   # older behaviour
+        assert service._send_onboarding_sms("+254711111111", "Abcd2345") is True
+
+    def test_false_an_exception_and_a_missing_function_all_count_as_not_sent(self, comms):
+        comms.results["send_onboarding_sms"] = False
+        assert service._send_onboarding_sms("+254711111111", "Abcd2345") is False
+
+        comms.results["send_onboarding_sms"] = RuntimeError("boom")
+        assert service._send_onboarding_sms("+254711111111", "Abcd2345") is False
+
+        del comms.send_password_reset_sms
+        assert service._send_password_reset_sms("+254711111111", "Abcd2345") is False
+
+    def test_the_failure_log_names_the_error_type_but_nothing_sensitive(self, comms, caplog):
+        comms.results["send_onboarding_sms"] = RuntimeError("Abcd2345 +254711111111 leaked in a provider error")
+        with caplog.at_level(logging.INFO):
+            service._send_onboarding_sms("+254711111111", "Abcd2345")
+        assert "communications_send_failed" in caplog.text and "RuntimeError" in caplog.text
+        assert "+254711111111" not in caplog.text and "Abcd2345" not in caplog.text
