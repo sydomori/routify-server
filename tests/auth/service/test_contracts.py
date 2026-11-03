@@ -43,3 +43,20 @@ class TestDriverGuards:
             call(manager.id)
         with pytest.raises(UserNotFoundError):
             call(99999)
+
+
+class TestDeactivation:
+    def test_deactivating_blocks_login_flips_is_active_and_is_audited(self, manager, driver, audit_rows):
+        from app.audit import actions
+
+        assert service.is_driver_active(driver.id) is True
+        service.deactivate_driver(driver.id, actor_id=manager.id)
+
+        assert service.is_driver_active(driver.id) is False
+        assert service.attempt_login(driver.phone, "DriverPass123").user is None
+        [row] = audit_rows(action=actions.DRIVER_DEACTIVATE)
+        assert (row.actor_id, row.entity_type, row.entity_id) == (manager.id, "User", driver.id)
+
+    def test_only_drivers_can_be_deactivated(self, manager):
+        with pytest.raises(NotADriverError):
+            service.deactivate_driver(manager.id)
