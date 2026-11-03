@@ -165,3 +165,21 @@ class TestOnboardDriver:
         payload = {k: (driver.phone if v == "DRIVER_PHONE" else v) for k, v in payload.items()}
         response = client.post("/api/auth/onboard-driver", json=payload, headers=auth_headers(manager))
         assert response.status_code == status
+
+class TestInviteManager:
+    BODY = {"name": "Second", "phone": "+254700000002", "email": "second@routify.test"}
+
+    def test_a_manager_can_invite(self, client, manager, auth_headers):
+        response = client.post("/api/auth/invite-manager", json=self.BODY, headers=auth_headers(manager))
+        assert response.status_code == 201
+        assert response.get_json()["must_change_password"] is True
+
+    def test_a_driver_is_forbidden_and_no_token_is_401(self, client, driver, auth_headers):
+        assert client.post("/api/auth/invite-manager", json=self.BODY, headers=auth_headers(driver)).status_code == 403
+        assert client.post("/api/auth/invite-manager", json=self.BODY).status_code == 401
+
+    def test_a_duplicate_email_is_409_and_an_invalid_one_is_400(self, client, manager, auth_headers):
+        dup = {**self.BODY, "phone": "+254700000009", "email": manager.email}
+        assert client.post("/api/auth/invite-manager", json=dup, headers=auth_headers(manager)).status_code == 409
+        bad = {**self.BODY, "email": "not-an-email"}
+        assert client.post("/api/auth/invite-manager", json=bad, headers=auth_headers(manager)).status_code == 400
