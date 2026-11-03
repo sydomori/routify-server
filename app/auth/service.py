@@ -40,7 +40,7 @@ TEMP_PASSWORD_LIFETIME = timedelta(hours=72)
 
 @dataclass(frozen=True)
 class LoginResult:
-    user: User | None
+    user: User | None = None
     locked: bool = False
     retry_after : int = 0
     reason : str | None = None
