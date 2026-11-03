@@ -39,3 +39,11 @@ class TestPasswordPolicy:
     def test_shorter_or_missing_is_rejected(self, weak):
         with pytest.raises(WeakPasswordError):
             validate_password_policy(weak)
+
+class TestTempPasswords:
+    def test_default_length_is_eight(self):
+        assert len(generate_temp_password()) == 8
+
+    def test_never_uses_characters_that_are_hard_to_read_off_an_sms(self):
+        sample = "".join(generate_temp_password(length=64) for _ in range(20))
+        assert not (set(sample) & set("0O1lI"))
