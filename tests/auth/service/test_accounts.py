@@ -134,3 +134,40 @@ class TestInviteManager:
         assert invitee.id is not None
         [row] = audit_rows(action=actions.MANAGER_INVITE)
         assert row.outcome == actions.OUTCOME_FAILED
+
+class TestAcceptInvite:
+    def invited_token(self, manager):
+        invitee = invite(manager)
+        return invitee, service._generate_invite_token(invitee.id)
+
+    def test_a_valid_invite_sets_the_password_opens_the_gate_and_is_audited(self, manager, audit_rows):
+        invitee, token = self.invited_token(manager)
+        user = service.accept_invite(token, "NewManagerPass1")
+
+        assert user.must_change_password is False
+        assert verify_password("NewManagerPass1", user.password_hash)
+        assert service.attempt_login("second@routify.test", "NewManagerPass1").user is not None
+        [row] = audit_rows(action=actions.PASSWORD_CHANGE)
+        assert (row.actor_id, row.meta) == (invitee.id, {"forced": True, "via": "invite"})
+        assert "NewManagerPass1" not in meta_text(row)
+
+    def test_a_weak_password_is_refused_and_the_invite_stays_usable(self, manager):
+        _, token = self.invited_token(manager)
+        with pytest.raises(ValueError):
+            service.accept_invite(token, "short")
+        assert service.accept_invite(token, "NewManagerPass1").must_change_password is False
+
+    def test_an_invite_can_only_be_used_once(self, manager):
+        _, token = self.invited_token(manager)
+        service.accept_invite(token, "FirstPassword123")
+        with pytest.raises(ValueError):
+            service.accept_invite(token, "SecondPassword123")
+
+    @pytest.mark.parametrize("make_token", [
+        lambda driver: "this-is-not-a-real-token",
+        lambda driver: service._generate_invite_token(driver.id),   # a token for a driver
+        lambda driver: service._generate_invite_token(99999),       # a token for nobody
+    ], ids=["garbage", "points-at-a-driver", "points-at-nobody"])
+    def test_a_bad_token_is_rejected(self, driver, make_token):
+        with pytest.raises(ValueError):
+            service.accept_invite(make_token(driver), "SomePassword12345")

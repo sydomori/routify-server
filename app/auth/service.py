@@ -184,7 +184,7 @@ def accept_invite(token:str, new_password:str) -> User:
     user_id = _verify_invite_token(token)
 
     try:
-        user = get_user_by_id(user.id)
+        user = get_user_by_id(user_id)
     except UserNotFoundError:
         raise ValueError("Invalid or expired invite token")
 
