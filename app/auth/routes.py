@@ -35,7 +35,7 @@ def onboard_driver_route():
 
     try:
         driver = service.onboard_driver(
-            name=data["name"], phone=data["phone"], actor_id=int(get_jwt_identity)
+            name=data["name"], phone=data["phone"], actor_id=int(get_jwt_identity())
         )
     except DuplicateUserError as err:
         return jsonify({"error": str(err)}), 409

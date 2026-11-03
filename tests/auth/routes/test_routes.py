@@ -128,3 +128,40 @@ class TestChangePassword:
 
     def test_a_token_is_required(self, client):
         assert client.post("/api/auth/change-password", json={"new_password": "BrandNewPassword1"}).status_code == 401
+
+# ------------- Manage-only endpoints --------------
+
+class TestOnboardDriver:
+    def test_a_manager_creates_a_driver_and_the_temp_password_is_not_in_the_response(
+        self, client, manager, auth_headers, comms
+    ):
+        response = client.post(
+            "/api/auth/onboard-driver",
+            json={"name": "Sam Driver", "phone": "0711111111"},
+            headers=auth_headers(manager),
+        )
+        assert response.status_code == 201
+        assert response.get_json()["phone"] == "+254711111111"
+        [(_, temp_password)] = comms.sent("send_onboarding_sms")
+        assert temp_password not in response.get_data(as_text=True)
+
+    def test_a_driver_is_forbidden_and_the_attempt_is_audited(self, client, driver, auth_headers, audit_rows):
+        response = client.post(
+            "/api/auth/onboard-driver", json={"name": "New", "phone": "+254711111112"}, headers=auth_headers(driver)
+        )
+        assert response.status_code == 403
+        [row] = audit_rows(action=actions.ACCESS_DENIED)
+        assert row.actor_id == driver.id and row.meta["reason"] == "insufficient_role"
+
+    def test_no_token_is_401(self, client):
+        assert client.post("/api/auth/onboard-driver", json={"name": "X", "phone": "+254711111111"}).status_code == 401
+
+    @pytest.mark.parametrize("payload,status", [
+        ({"name": "Dupe", "phone": "DRIVER_PHONE"}, 409),
+        ({"name": "Bad", "phone": "not-a-phone"}, 400),
+        ({"name": "Missing"}, 400),
+    ], ids=["duplicate-phone", "invalid-phone", "missing-field"])
+    def test_bad_input_maps_to_the_right_status(self, client, manager, driver, auth_headers, payload, status):
+        payload = {k: (driver.phone if v == "DRIVER_PHONE" else v) for k, v in payload.items()}
+        response = client.post("/api/auth/onboard-driver", json=payload, headers=auth_headers(manager))
+        assert response.status_code == status
