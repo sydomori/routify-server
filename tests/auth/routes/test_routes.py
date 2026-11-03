@@ -37,3 +37,44 @@ class TestRequestId:
 
     def test_an_id_is_generated_when_none_is_sent(self, client):
         uuid.UUID(client.get("/api/health").headers["X-Request-ID"])
+
+
+# ---------- authentication endpoints ----------
+
+class TestLogin:
+    def test_success_returns_both_tokens_and_no_secrets(self, client, manager):
+        body = login(client, manager.email, "ManagerPass123").get_json()
+        assert body["access_token"] and body["refresh_token"]
+        assert body["access_token"] != body["refresh_token"]
+        assert "password_hash" not in body["user"]
+
+    def test_every_kind_of_rejection_looks_identical_to_the_client(self, client, manager, make_user):
+        """So nobody can tell an unknown account from a wrong password, a deactivated
+        account or an expired temp password. The audit log keeps the real reason."""
+        from datetime import timedelta
+        from app.auth.utils import utcnow
+
+        inactive = make_user(role="driver", password="DriverPass123", is_active=False)
+        expired = make_user(
+            role="driver", password="TempPass1", must_change_password=True,
+            temp_password_expires_at=utcnow() - timedelta(minutes=1),
+        )
+        responses = [
+            login(client, "nobody@nowhere.test", "x"),
+            login(client, manager.email, "wrong"),
+            login(client, inactive.phone, "DriverPass123"),
+            login(client, expired.phone, "TempPass1"),
+        ]
+        assert {r.status_code for r in responses} == {401}
+        assert len({r.get_data() for r in responses}) == 1
+
+    def test_a_locked_account_gets_429_with_a_retry_after(self, client, manager):
+        for _ in range(5):
+            login(client, manager.email, "wrong")
+        response = login(client, manager.email, "ManagerPass123")
+        assert response.status_code == 429
+        assert response.get_json()["code"] == "account_locked"
+        assert int(response.headers["Retry-After"]) > 0
+
+    def test_missing_fields_are_a_400(self, client):
+        assert client.post("/api/auth/login", json={"identifier": "x"}).status_code == 400
