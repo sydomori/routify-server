@@ -183,3 +183,18 @@ class TestInviteManager:
         assert client.post("/api/auth/invite-manager", json=dup, headers=auth_headers(manager)).status_code == 409
         bad = {**self.BODY, "email": "not-an-email"}
         assert client.post("/api/auth/invite-manager", json=bad, headers=auth_headers(manager)).status_code == 400
+
+class TestDeactivateDriver:
+    def test_a_manager_deactivates_a_driver_and_it_is_audited(self, client, manager, driver, auth_headers, audit_rows):
+        response = client.patch(f"/api/auth/drivers/{driver.id}/deactivate", headers=auth_headers(manager))
+        assert response.status_code == 200
+        [row] = audit_rows(action=actions.DRIVER_DEACTIVATE)
+        assert (row.actor_id, row.entity_id) == (manager.id, driver.id)
+
+    def test_a_driver_is_forbidden(self, client, driver, auth_headers):
+        assert client.patch(f"/api/auth/drivers/{driver.id}/deactivate", headers=auth_headers(driver)).status_code == 403
+
+    def test_unknown_is_404_and_a_manager_target_is_400(self, client, manager, make_user, auth_headers):
+        assert client.patch("/api/auth/drivers/99999/deactivate", headers=auth_headers(manager)).status_code == 404
+        other = make_user(role="manager")
+        assert client.patch(f"/api/auth/drivers/{other.id}/deactivate", headers=auth_headers(manager)).status_code == 400
