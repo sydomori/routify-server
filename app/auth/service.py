@@ -435,6 +435,7 @@ def _get_driver_or_raise(driver_id:int) -> User:
     driver = get_user_by_id(driver_id)
     if driver.role != "driver":
         raise NotADriverError(f"User {driver_id} is a '{driver.role}', not a driver")
+    return driver
 
 def _ensure_unique_contact(phone:str, email:str | None=None) -> None:
     """

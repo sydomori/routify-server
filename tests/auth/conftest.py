@@ -31,7 +31,7 @@ def comms(monkeypatch):
          return outcome
       return send
 
-   for fn_name in ("send_onboarding_sms", "send_passwords_reset_sms", "send_manager_invite_email"):
+   for fn_name in ("send_onboarding_sms", "send_password_reset_sms", "send_manager_invite_email"):
        setattr(fake, fn_name, make(fn_name))
 
    fake.sent = lambda name: [args for n, args in fake.calls if n == name]

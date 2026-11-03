@@ -83,3 +83,58 @@ class TestChangePassword:
     def test_an_unknown_user_is_reported(self):
         with pytest.raises(UserNotFoundError):
             service.change_password(99999, "BrandNewPassword1")
+
+
+class TestResetDriverPassword:
+    def test_a_reset_replaces_the_password_and_puts_the_driver_back_behind_the_gate(
+        self, manager, driver, comms, audit_rows
+    ):
+        driver.temp_password_used_at = utcnow()
+        db.session.commit()
+
+        service.reset_driver_password(driver.id, manager)
+
+        [(phone, new_temp)] = comms.sent("send_password_reset_sms")
+        assert phone == driver.phone
+        assert service.attempt_login(driver.phone, "DriverPass123").user is None   # old one dead
+        assert service.attempt_login(driver.phone, new_temp).user is not None      # new one works
+        assert driver.must_change_password is True and driver.temp_password_used_at is None
+        assert timedelta(hours=71, minutes=59) < driver.temp_password_expires_at - utcnow() <= timedelta(hours=72)
+        [row] = audit_rows(action=actions.DRIVER_PASSWORD_RESET)
+        assert (row.actor_id, row.entity_id, row.meta) == (manager.id, driver.id, {"sms_sent": True})
+        assert new_temp not in meta_text(row)
+
+    def test_a_reset_rescues_a_driver_whose_temp_password_expired(self, manager, make_user, comms):
+        driver = make_user(
+            role="driver", password="TempPass1", must_change_password=True,
+            temp_password_expires_at=utcnow() - timedelta(hours=1),
+        )
+        assert service.attempt_login(driver.phone, "TempPass1").user is None
+        service.reset_driver_password(driver.id, manager)
+        [(_, new_temp)] = comms.sent("send_password_reset_sms")
+        assert service.attempt_login(driver.phone, new_temp).user is not None
+
+    def test_a_failed_sms_still_resets_and_says_so_in_the_audit(self, manager, driver, comms, audit_rows):
+        comms.results["send_password_reset_sms"] = False
+        service.reset_driver_password(driver.id, manager)
+        assert driver.must_change_password is True
+        [row] = audit_rows(action=actions.DRIVER_PASSWORD_RESET)
+        assert row.meta == {"sms_sent": False}
+
+    def test_only_a_manager_may_reset(self, driver, make_user):
+        with pytest.raises(PermissionError):
+            service.reset_driver_password(make_user(role="driver").id, driver)
+
+    def test_a_manager_cannot_be_the_target(self, manager, make_user):
+        with pytest.raises(NotADriverError):
+            service.reset_driver_password(make_user(role="manager").id, manager)
+
+    def test_an_unknown_driver_is_reported(self, manager):
+        with pytest.raises(UserNotFoundError):
+            service.reset_driver_password(99999, manager)
+
+    def test_a_deactivated_driver_cannot_be_reset(self, manager, driver):
+        driver.is_active = False
+        db.session.commit()
+        with pytest.raises(ValueError):
+            service.reset_driver_password(driver.id, manager)
