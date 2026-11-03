@@ -79,3 +79,58 @@ class TestBootstrapFirstManager:
     def test_a_weak_password_is_rejected(self):
         with pytest.raises(WeakPasswordError):
             service.bootstrap_first_manager("Root", "+254700000001", "root@routify.test", "short")
+
+# ------------ Manager invites ----------------
+
+def invite(manager, **overrides):
+    """Helper to invite a manager with some defaults, so tests can override just the field they care about"""
+    args = dict(name="Second", phone="+254700000002", email="second@routify.test", requesting_user=manager)
+    args.update(overrides)
+    return service.invite_manager(**args)
+
+class TestInviteManager:
+    def test_creates_a_gated_manager_with_a_lowercase_email_and_hands_the_link_over(self, manager, comms):
+        invitee = invite(manager, email="Second@Routify.TEST")
+        assert (invitee.role, invitee.email, invitee.must_change_password) == ("manager", "second@routify.test", True)
+        [(user, link)] = comms.sent("send_manager_invite_email")
+        assert user.id == invitee.id and "/accept-invite?token=" in link
+
+    def test_only_a_manager_may_invite(self, driver):
+        with pytest.raises(PermissionError):
+            invite(driver)
+
+    def test_a_duplicate_email_is_caught_whatever_its_case(self, manager):
+        with pytest.raises(DuplicateUserError):
+            invite(manager, phone="+254700000009", email=manager.email.upper())
+
+    def test_a_duplicate_phone_is_caught(self, manager, driver):
+        with pytest.raises(DuplicateUserError):
+            invite(manager, phone=driver.phone, email="unique@routify.test")
+
+    def test_audit_points_at_the_invitee_and_holds_a_hash_never_the_email_or_link(
+        self, manager, comms, audit_rows
+    ):
+        invitee = invite(manager)
+        [(_, link)] = comms.sent("send_manager_invite_email")
+        [row] = audit_rows(action=actions.MANAGER_INVITE)
+
+        assert (row.actor_id, row.entity_type, row.entity_id) == (manager.id, "User", invitee.id)
+        assert row.outcome == actions.OUTCOME_SUCCESS
+        assert len(row.meta["invitee_hash"]) == 32
+        assert "second@routify.test" not in meta_text(row) and link not in meta_text(row)
+
+    @pytest.mark.parametrize("failure", ["module missing", "provider raises", "provider reports failure"])
+    def test_the_manager_is_still_created_when_the_email_cannot_be_sent(
+        self, failure, manager, comms, monkeypatch, audit_rows
+    ):
+        if failure == "module missing":
+            monkeypatch.setitem(sys.modules, "app.communications.service", None)
+        elif failure == "provider raises":
+            comms.results["send_manager_invite_email"] = RuntimeError("smtp down")
+        else:
+            comms.results["send_manager_invite_email"] = False
+
+        invitee = invite(manager)
+        assert invitee.id is not None
+        [row] = audit_rows(action=actions.MANAGER_INVITE)
+        assert row.outcome == actions.OUTCOME_FAILED
