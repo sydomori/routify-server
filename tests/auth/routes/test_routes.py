@@ -224,3 +224,21 @@ class TestResetDriverPassword:
         from app.extensions import db
         db.session.commit()
         assert client.post(f"/api/auth/drivers/{driver.id}/reset-password", headers=headers).status_code == 400
+
+
+# ------------- Public endpoints --------------
+
+class TestBootstrapManager:
+    BODY = {"name": "Root", "phone": "+254700000001", "email": "root@routify.test", "password": "RootPassword123"}
+
+    def test_the_first_call_creates_a_manager_without_leaking_the_hash(self, client):
+        response = client.post("/api/auth/bootstrap-manager", json=self.BODY)
+        assert response.status_code == 201
+        assert "password_hash" not in response.get_json()
+
+    def test_the_door_is_closed_once_a_manager_exists_even_with_no_token(self, client, manager):
+        assert client.post("/api/auth/bootstrap-manager", json=self.BODY).status_code == 403
+
+    def test_a_short_password_or_missing_fields_are_400(self, client):
+        assert client.post("/api/auth/bootstrap-manager", json={**self.BODY, "password": "Elevenchars"}).status_code == 400
+        assert client.post("/api/auth/bootstrap-manager", json={"name": "Incomplete"}).status_code == 400
