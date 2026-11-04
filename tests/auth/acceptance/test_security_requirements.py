@@ -147,3 +147,62 @@ class TestTempPasswordExpiry:
 
         assert login(client, "+254711111111", temp_password).status_code == 401
         assert db.session.get(User, driver_id).temp_password_used_at is not None
+
+# --------- A user who must change their password cannot reach normal routes
+
+GATED_ROUTES = [
+    pytest.param("post", "/api/auth/onboard-driver", {"name": "X", "phone": "+254711111199"}, id="onboard-driver"),
+    pytest.param("post", "/api/auth/invite-manager", {"name": "Y", "phone": "+254700000077", "email": "y@routify.test"}, id="invite-manager"),
+    pytest.param("patch", "/api/auth/drivers/12345/deactivate", None, id="deactivate-driver"),
+    pytest.param("post", "/api/auth/drivers/12345/reset-password", None, id="reset-password"),
+]
+
+class TestPasswordChangeGate:
+    @pytest.fixture()
+    def gated(self, client, make_user):
+        """
+         Creates a manager on a temporary password with genuine tokens from login
+        """
+        user = make_user(role="manager", password="TempPass1", must_change_password=True)
+        access, refresh = tokens(client, user.email, "TempPass1")
+        return user,access,refresh
+    
+    @pytest.mark.parametrize("method,url,body", GATED_ROUTES)
+    def test_normal_routes_are_refused_until_the_password_is_changed(
+        self, client, gated, audit_rows, method, url, body
+    ):
+        user, access, _ = gated
+        response = getattr(client, method)(url, json=body, headers=access)
+        assert response.status_code == 403
+        assert response.get_json()["code"] == "password_change_required"
+        row = audit_rows(action=actions.ACCESS_DENIED)[-1]
+        assert (row.actor_id, row.meta["reason"]) == (user.id, "password_change_required")
+
+
+    def test_the_routes_needed_to_escape_the_gate_stay_open(self, client, gated):
+        _, access, refresh = gated
+        assert client.get("/api/auth/me", headers=access).status_code == 200
+        assert client.post("/api/auth/refresh", headers=refresh).status_code == 200
+        changed = client.post("/api/auth/change-password", json={"new_password": "BrandNewPassword1"}, headers=access)
+        assert changed.status_code == 200
+
+    def test_the_same_token_is_unblocked_the_moment_the_password_is_changed(self, client, gated):
+        """The gate reads the database on every request, not a flag baked into the token."""
+        _, access, _ = gated
+        payload = {"name": "X", "phone": "+254711111199"}
+        assert client.post("/api/auth/onboard-driver", json=payload, headers=access).status_code == 403
+        client.post("/api/auth/change-password", json={"new_password": "BrandNewPassword1"}, headers=access)
+        assert client.post("/api/auth/onboard-driver", json=payload, headers=access).status_code == 201
+
+    def test_a_new_drivers_first_login_journey(self, client, manager, auth_headers, comms):
+        driver_id, temp_password = onboard_a_driver(client, manager, auth_headers, comms)
+
+        first = login(client, "+254711111111", temp_password)
+        assert first.get_json()["must_change_password"] is True
+        access = bearer(first.get_json()["access_token"])
+        assert client.get("/api/auth/me", headers=access).get_json()["must_change_password"] is True
+
+        client.post("/api/auth/change-password", json={"new_password": "BrandNewPassword1"}, headers=access)
+
+        second = login(client, "+254711111111", "BrandNewPassword1")
+        assert second.status_code == 200 and second.get_json()["must_change_password"] is False
