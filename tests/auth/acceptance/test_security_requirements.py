@@ -100,3 +100,50 @@ class TestDeactivatedUserCannotRefresh:
         assert row.actor_id == driver.id
         assert row.meta["reason"] == "inactive_account"
         assert row.meta["endpoint"] == "auth.refresh_route"
+
+
+# -------- Temporary passwords expire in 72 hrs and are single use ----------------
+
+class TestTempPasswordExpiry:
+    @pytest.mark.parametrize("offset, expected_status", [
+        pytest.param(timedelta(minutes=-1), 401, id="a-minute-after-expiry-is-rejected"),
+        pytest.param(timedelta(minutes=1), 200, id="a-minute-before-expiry-still-works"),
+    ])
+
+    def test_the_expiry_boundary(self, client, manager, auth_headers, comms, offset, expected_status):
+        """ 
+         The temp password is sent to the driver via SMS, and is valid for 72 hours.
+         This test checks that the expiry boundary is enforced correctly.
+        """
+        driver_id, temp_password = onboard_a_driver(client, manager, auth_headers, comms)
+        db.session.get(User, driver_id).temp_password_expires_at = utcnow() + offset   # "time passes"
+        db.session.commit()
+
+        assert login(client, "+254711111111", temp_password).status_code == expected_status
+    
+    def test_an_expired_driver_is_rejected_audited_and_rescued_by_a_manager_reset(
+        self, client, manager, auth_headers, comms, audit_rows
+    ):
+        driver_id, temp_password = onboard_a_driver(client, manager, auth_headers, comms)
+        db.session.get(User, driver_id).temp_password_expires_at = utcnow() - timedelta(hours=1)
+        db.session.commit()
+
+        assert login(client, "+254711111111", temp_password).status_code == 401
+        [row] = audit_rows(action=actions.LOGIN_FAILED)
+        assert row.meta["reason"] == "temp_password_expired"   # the client saw a generic 401
+
+        reset = client.post(f"/api/auth/drivers/{driver_id}/reset-password", headers=auth_headers(manager))
+        assert reset.status_code == 200
+        [(_, new_temp)] = comms.sent("send_password_reset_sms")
+        relogin = login(client, "+254711111111", new_temp)
+        assert relogin.status_code == 200 and relogin.get_json()["must_change_password"] is True
+
+    def test_a_temp_password_is_single_use(self, client, manager, auth_headers, comms):
+        driver_id, temp_password = onboard_a_driver(client, manager, auth_headers, comms)
+        access, _ = tokens(client, "+254711111111", temp_password)
+
+        changed = client.post("/api/auth/change-password", json={"new_password": "BrandNewPassword1"}, headers=access)
+        assert changed.status_code == 200
+
+        assert login(client, "+254711111111", temp_password).status_code == 401
+        assert db.session.get(User, driver_id).temp_password_used_at is not None
