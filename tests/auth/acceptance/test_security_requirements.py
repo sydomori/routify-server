@@ -206,3 +206,39 @@ class TestPasswordChangeGate:
 
         second = login(client, "+254711111111", "BrandNewPassword1")
         assert second.status_code == 200 and second.get_json()["must_change_password"] is False
+
+# ---------- Login lockout and what happens when Redis is down ------------------
+
+class TestLockout:
+    def test_five_failures_lock_the_account_for_fifteen_minutes(self, client, manager, lockout_clock):
+        for _ in range(5):
+            assert login(client, manager.email, "wrong").status_code == 401
+
+        locked = login(client, manager.email, "ManagerPass123")   # even the RIGHT password
+        assert locked.status_code == 429
+        assert int(locked.headers["Retry-After"]) > 0
+
+        lockout_clock.advance(14 * 60)
+        assert login(client, manager.email, "ManagerPass123").status_code == 429   # 14 minutes: still locked
+        lockout_clock.advance(61)
+        assert login(client, manager.email, "ManagerPass123").status_code == 200   # 15 minutes: free
+
+    def test_locking_one_account_leaves_everyone_else_alone(self, client, manager, driver):
+        for _ in range(5):
+            login(client, manager.email, "wrong")
+        assert login(client, driver.phone, "DriverPass123").status_code == 200
+
+
+class TestRedisDownFailsOpen:
+    """When the lockout store is unreachable, people must still be able to log in. The
+    failure must be loud, and bad passwords must still be rejected."""
+
+    def test_logins_keep_working_with_redis_down(self, client, manager, redis_down, caplog):
+        with caplog.at_level("ERROR"):
+            for _ in range(8):   # well past the limit of 5
+                assert login(client, manager.email, "wrong").status_code == 401   # rejected, never 429
+            ok = login(client, manager.email, "ManagerPass123")
+
+        assert ok.status_code == 200 and ok.get_json()["access_token"]
+        assert "lockout_store_unavailable" in caplog.text
+        assert redis_down.ttl.called, "Redis was never attempted, so this test proved nothing"
