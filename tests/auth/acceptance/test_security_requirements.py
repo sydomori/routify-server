@@ -72,3 +72,31 @@ class TestDeactivatedUserIsDenied:
         again = client.post("/api/auth/onboard-driver", json={"name": "B", "phone": "+254711111112"}, headers=access)
         assert again.status_code == 403
         assert again.get_json()["code"] == "account_inactive"
+
+
+# ------ Refresh endpoint test ------------------
+
+class TestDeactivatedUserCannotRefresh:
+    """
+     Access tokens last 15 minutes but refresh tokens last 7 days
+     auth/refresh must check is_active otherwise a deactivated driver could
+     keep using the app for 7 days after being deactivated
+    """
+
+    def test_refresh_works_until_the_account_is_deactivated_then_stops(
+        self, client, manager, driver, auth_headers, audit_rows
+    ):
+        _, refresh = tokens(client, driver.phone, "DriverPass123") # get access/ refresh tokens
+        before = client.post("/api/auth/refresh", headers=refresh)
+        assert before.status_code == 200 and before.get_json()["access_token"] #make sure the tokens are ok
+
+        client.patch(f"/api/auth/drivers/{driver.id}/deactivate", headers=auth_headers(manager))
+
+        after = client.post("/api/auth/refresh", headers=refresh)
+        assert after.status_code == 403   # 403, not 401, so a frontend doesn't loop on refresh
+        assert after.get_json()["code"] == "account_inactive"
+        assert "access_token" not in after.get_json()
+        row = audit_rows(action=actions.ACCESS_DENIED)[-1]
+        assert row.actor_id == driver.id
+        assert row.meta["reason"] == "inactive_account"
+        assert row.meta["endpoint"] == "auth.refresh_route"
