@@ -6,8 +6,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
     """base configuration class with shared default settings for all environments"""
 
-    SECRET_KEY = os.environ.get('SECRET_KEY',"dev-secret-change-me")
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY',"dev-jwt-secret-change-me")
+    SECRET_KEY = os.environ.get('SECRET_KEY',"dev-secret-change-me-not-for-production-use")
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY',"dev-jwt-secret-change-me-not-for-production-use")
 
     #NFR-SEC-02: access token expires after 15 minutes. Paired with refresh token for long-lived sessions.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
@@ -51,6 +51,13 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_DEFAULT = "200 per day;50 per hour"
 
+    #------- Login lockout -------
+    # "redis via WSL, production" or "memory" (tests, or dev without Redis running)
+    LOCKOUT_BACKEND = os.environ.get("LOCKOUT_BACKEND", "redis")
+    REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    LOCKOUT_MAX_ATTEMPTS = 5
+    LOCKOUT_WINDOW_SECONDS = 15 * 60
+
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or (f"sqlite:///{os.path.join(basedir, 'dev.db')}")
@@ -63,6 +70,9 @@ class TestingConfig(Config):
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     AUDIT_STRICT = True
     AUDIT_HASH_KEY = "test-hash-key-at-least-32-characters-long"
+    LOCKOUT_BACKEND = "memory" #Tests never need a running Redis
+    RATELIMIT_ENABLED = False #a default limit doesn't cause a surprise 429in a test
+    BCRYPT_ROUNDS = 4 # bcrypt's minimum: keeps the suite fast 
 
 class ProductionConfig(Config):
     DEBUG = False
@@ -81,4 +91,4 @@ config_by_name = {
 }
 
 # Vars validate_config() requires to be non-empty outside development/testing.
-REQUIRED_IN_PRODUCTION = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL"]
+REQUIRED_IN_PRODUCTION = ["SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL", "REDIS_URL"]

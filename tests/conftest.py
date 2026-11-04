@@ -6,6 +6,7 @@ from app.extensions import db as _db
 from app.auth.models import User
 from app.auth.utils import hash_password
 from app.audit.models import AuditLog
+from flask_jwt_extended import create_access_token, create_refresh_token
 
 
 """
@@ -94,3 +95,10 @@ def audit_rows(db):
         return AuditLog.query.filter_by(**filters).order_by(AuditLog.id).all()
 
     return _rows
+
+@pytest.fixture()
+def refresh_headers(app):
+    def _refresh_headers(user):
+        return {"Authorization": f"Bearer {create_refresh_token(identity=str(user.id))}"}
+
+    return _refresh_headers

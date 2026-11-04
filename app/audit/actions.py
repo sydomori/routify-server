@@ -42,6 +42,8 @@ OUTCOME_SUCCESS = "success"
 OUTCOME_DENIED = "denied"
 OUTCOME_FAILED = "failed"
 
+DRIVER_PASSWORD_RESET = "driver.password_reset"
+
 VALID_OUTCOMES = frozenset({OUTCOME_SUCCESS, OUTCOME_DENIED, OUTCOME_FAILED})
  
 VALID_ACTIONS = frozenset(

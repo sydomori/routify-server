@@ -46,7 +46,35 @@ def _deny(status, error, reason, actor_id=None, code=None, **extra_meta):
     if code:
         body["code"] = code
     return jsonify(body), status
- 
+
+def active_user_required(refresh=False):
+    """
+     Valid_jwt -> account exists -> account is active.
+     protects routes that a logged in user may call, including one still stuck on temporary
+     password and the refresh endpoint
+     Security : Ensures deactivated drivers are denied access
+    """
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            verify_jwt_in_request(refresh=refresh)
+            actor_id = int(get_jwt_identity())
+
+            try:
+                user = _load_user()
+            except:
+                return jsonify({"error":"User not found"}), 404
+
+            if not user.is_active:
+                return _deny(403, "Account deactivated", "inactive_account", actor_id=actor_id, code="account_inactive")
+
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+           
+
  
 def role_required(*allowed_roles):
     """Checks, in order: valid JWT -> account exists -> account is active

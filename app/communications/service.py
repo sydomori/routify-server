@@ -22,28 +22,37 @@ def send_onboarding_sms(
     phone:str,
     temp_password:str
 ) -> None:
-    """called by auth.service.onboard_driver()"""
+    """called by auth.service.onboard_driver(). True if the provider accepted the message"""
     message=f"Welcome to Routify. Your temp password is: {temp_password}"
     try:
         send_sms(phone, message)
-        _log_notification(phone, "sms", message, "sent")
+        sent = True 
     except Exception:
-        _log_notification(phone, "sms", message, "failed")
+        sent = False
+
+    #Security : Never log the real text: it contains the temp password
+    _log_notification(phone, "sms", "Onboarding SMS" , "sent" if sent else "failed")
+
+    return sent
 
 def send_manager_invite_email(
     user,
     invite_link:str
 ) -> None:
-    """called by auth.service.onboard_manager()"""
+    """called by auth.service.onboard_manager(). True if the email was accepted for delivery"""
     subject = "You've been invited to Routify"
     body = f"Hi {user.name}, set up your manager account here: {invite_link}"
 
     try:
         send_email(user.email, subject, body)
-        _log_notification(user.email, "email", body, "sent")
+        sent = True
     except Exception:
-        _log_notification(user.email,"email", body, "failed")
+        sent = False
 
+    # THe link carries a signed token, so it is never logged either
+    _log_notification(user.email,"email", "Manager invite email", "sent" if sent else "failed")
+
+    return sent
 
 def notify_trip_started(trip, manager_phone:str) -> None:
     """called by trips.service.start_trip()"""
